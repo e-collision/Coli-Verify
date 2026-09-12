@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coli Chat</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- Verification screen -->
+    <div class="container" id="loginScreen">
+        <h1>Coli Chat</h1>
+        <p>Enter your verification code to continue.</p>
+
+        <input
+            type="text"
+            id="codeInput"
+            placeholder="Enter code"
+            autocomplete="off"
+        >
+
+        <button id="joinButton">Join Chat</button>
+
+        <p id="errorMessage"></p>
+    </div>
+
+
+    <!-- Username and color screen -->
+    <div class="container" id="usernameScreen" style="display: none;">
+
+        <h1>Choose your username</h1>
+
+        <p>This is how you'll appear in chat.</p>
+
+        <input
+            type="text"
+            id="usernameInput"
+            placeholder="Enter username"
+            maxlength="20"
+            autocomplete="off"
+        >
+
+        <p>Choose your chat color:</p>
+
+        <input
+            type="color"
+            id="colorInput"
+            value="#4285F4"
+        >
+
+        <button id="usernameButton">Enter Chat</button>
+
+        <p id="usernameError"></p>
+
+    </div>
+
+
+    <!-- Chat screen -->
+    <div class="chatContainer" id="chatScreen" style="display: none;">
+
+        <h1>Coli Chat</h1>
+
+        <div id="messages"></div>
+
+        <div class="messageBox">
+
+            <input
+                type="text"
+                id="messageInput"
+                placeholder="Type a message..."
+                autocomplete="off"
+            >
+
+            <button id="sendButton">Send</button>
+
+        </div>
+
+    </div>
+
+
+    <script type="module" src="script.js"></script>
+
+</body>
+</html>
