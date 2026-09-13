@@ -41,7 +41,7 @@ const auth = getAuth(app);
    SERVER
    ========================= */
 
-const SERVER_URL = "http://localhost:3000";
+const SERVER_URL = "https://coli-verify-1.onrender.com";
 
 
 /* =========================
