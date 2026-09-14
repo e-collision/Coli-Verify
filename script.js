@@ -102,7 +102,8 @@ let isAdmin = false;
 
 let stopMessageListener = null;
 
-let sendMessageCooldown = false;
+/* ADDED: message anti-spam lock */
+let sendMessageLocked = false;
 
 
 /* =========================
@@ -983,18 +984,19 @@ async function sendMessage() {
     }
 
 
-    /* 0.2 second anti-spam cooldown */
+    /*
+     * Anti-spam protection.
+     *
+     * This prevents multiple Enter presses
+     * or clicks from creating duplicate
+     * messages while a message is sending.
+     */
 
-    if (sendMessageCooldown) {
-
-        showNotification(
-            "Please wait before sending another message."
-        );
-
+    if (sendMessageLocked) {
         return;
     }
 
-    sendMessageCooldown = true;
+    sendMessageLocked = true;
 
 
     try {
@@ -1077,11 +1079,16 @@ async function sendMessage() {
 
         sendButton.disabled = false;
 
-        setTimeout(() => {
+        /*
+         * Keep the message locked for
+         * 0.2 seconds after sending finishes.
+         */
 
-            sendMessageCooldown = false;
+        await new Promise(resolve =>
+            setTimeout(resolve, 200)
+        );
 
-        }, 200);
+        sendMessageLocked = false;
     }
 }
 
