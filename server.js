@@ -663,6 +663,92 @@ app.get(
 );
 
 /* =====================================================
+   UPDATE PROFILE PICTURE
+   AUTHENTICATED USERS
+   ===================================================== */
+
+app.post(
+    "/profile-picture",
+    verifyUserToken,
+    async (req, res) => {
+        try {
+
+            const profilePicture =
+                String(
+                    req.body.profilePicture || ""
+                ).trim();
+
+            if (profilePicture.length > 1000) {
+                return res.status(400).json({
+                    success: false,
+                    message:
+                        "Profile picture URL is too long."
+                });
+            }
+
+            if (
+                profilePicture &&
+                !profilePicture.startsWith("https://")
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    message:
+                        "Profile picture must use an HTTPS URL."
+                });
+            }
+
+            const profileRef =
+                db
+                    .collection("profiles")
+                    .doc(req.user.uid);
+
+            const profile =
+                await profileRef.get();
+
+            if (!profile.exists) {
+                return res.status(400).json({
+                    success: false,
+                    message:
+                        "Set your username first."
+                });
+            }
+
+            await profileRef.set(
+                {
+                    profilePicture:
+                        profilePicture || null,
+
+                    updatedAt:
+                        Date.now()
+                },
+                {
+                    merge: true
+                }
+            );
+
+            return res.json({
+                success: true,
+                profilePicture:
+                    profilePicture || null
+            });
+
+        } catch (error) {
+
+            console.error(
+                "Profile picture error:",
+                error
+            );
+
+            return res.status(500).json({
+                success: false,
+                message:
+                    "Could not update profile picture."
+            });
+        }
+    }
+);
+
+/* =====================================================
    MUTE CHAT
    ADMIN ONLY
    ===================================================== */

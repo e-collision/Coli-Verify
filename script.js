@@ -27,7 +27,7 @@ import {
    ===================================================== */
 
 const firebaseConfig = {
-    apiKey: "AIzaSyBAVEXNzezY4jSnnq-qJMRM2HiBWIDLoBE",
+    apiKey: "AIzaSyBAVEXNzez4ySnnq-qJMRM2HiBWIDLoBE",
     authDomain: "coli-verify.firebaseapp.com",
     projectId: "coli-verify",
     storageBucket: "coli-verify.firebasestorage.app",
@@ -120,6 +120,12 @@ const settingsPage =
 const profileUsername =
     document.getElementById("profileUsername");
 
+const profilePictureInput =
+    document.getElementById("profilePictureInput");
+
+const profilePicturePreview =
+    document.getElementById("profilePicturePreview");
+
 const profileColor =
     document.getElementById("profileColor");
 
@@ -152,6 +158,9 @@ let currentUsername = null;
 
 let currentColor =
     "#4285F4";
+
+let currentProfilePicture =
+    null;
 
 let isAdmin = false;
 
@@ -235,15 +244,26 @@ function getSavedUsers() {
 function saveUser(
     code,
     username,
-    color
+    color,
+    profilePicture = null
 ) {
 
     const users =
         getSavedUsers();
 
+    const oldUser =
+        users[code] || {};
+
     users[code] = {
         username,
-        color
+        color,
+        profilePicture:
+            profilePicture !== null
+                ? profilePicture
+                : (
+                    oldUser.profilePicture ||
+                    null
+                )
     };
 
     localStorage.setItem(
@@ -292,6 +312,83 @@ function showScreen(screen) {
                 : "none";
     }
 }
+
+
+/* =====================================================
+   PROFILE PICTURE PREVIEW
+   ===================================================== */
+
+function updateProfilePicturePreview(url) {
+
+    if (!profilePicturePreview) {
+        return;
+    }
+
+    profilePicturePreview.innerHTML = "";
+
+    const cleanUrl =
+        String(url || "").trim();
+
+    if (!cleanUrl) {
+
+        profilePicturePreview.textContent =
+            (currentUsername || "?")
+                .charAt(0)
+                .toUpperCase();
+
+        return;
+    }
+
+    const image =
+        document.createElement("img");
+
+    image.src =
+        cleanUrl;
+
+    image.alt =
+        "Profile picture";
+
+    image.style.width =
+        "100%";
+
+    image.style.height =
+        "100%";
+
+    image.style.objectFit =
+        "cover";
+
+    image.style.display =
+        "block";
+
+    image.onerror = () => {
+
+        profilePicturePreview.innerHTML = "";
+
+        profilePicturePreview.textContent =
+            (currentUsername || "?")
+                .charAt(0)
+                .toUpperCase();
+    };
+
+    profilePicturePreview.appendChild(
+        image
+    );
+}
+
+
+/* =====================================================
+   PROFILE PICTURE INPUT PREVIEW
+   ===================================================== */
+
+profilePictureInput?.addEventListener(
+    "input",
+    () => {
+
+        updateProfilePicturePreview(
+            profilePictureInput.value
+        );
+    }
+);
 
 
 /* =====================================================
@@ -475,7 +572,9 @@ function setupProfileNameCodeUI() {
     profileNameCodeInput.style.boxSizing =
         "border-box";
 
-    wrapper.appendChild(label);
+    wrapper.appendChild(
+        label
+    );
 
     wrapper.appendChild(
         profileNameCodeInput
@@ -514,6 +613,12 @@ function updateProfilePage() {
             currentUsername || "";
     }
 
+    if (profilePictureInput) {
+
+        profilePictureInput.value =
+            currentProfilePicture || "";
+    }
+
     if (profileColor) {
 
         profileColor.value =
@@ -526,6 +631,10 @@ function updateProfilePage() {
         profileNameCodeInput.value =
             "";
     }
+
+    updateProfilePicturePreview(
+        currentProfilePicture
+    );
 
     updateProfileColorText();
 
@@ -557,6 +666,120 @@ profileColor?.addEventListener(
 
 
 /* =====================================================
+   SAVE PROFILE PICTURE
+   ===================================================== */
+
+async function saveProfilePicture(url) {
+
+    const cleanUrl =
+        String(url || "").trim();
+
+    if (
+        cleanUrl &&
+        !cleanUrl.startsWith(
+            "https://"
+        )
+    ) {
+
+        throw new Error(
+            "Profile picture must use an HTTPS URL."
+        );
+    }
+
+    if (cleanUrl.length > 1000) {
+
+        throw new Error(
+            "Profile picture URL is too long."
+        );
+    }
+
+    if (cleanUrl) {
+
+        try {
+
+            const parsedUrl =
+                new URL(cleanUrl);
+
+            if (
+                parsedUrl.protocol !==
+                "https:"
+            ) {
+
+                throw new Error(
+                    "Profile picture must use an HTTPS URL."
+                );
+            }
+
+        } catch (error) {
+
+            if (
+                error.message ===
+                "Profile picture must use an HTTPS URL."
+            ) {
+                throw error;
+            }
+
+            throw new Error(
+                "Enter a valid HTTPS image URL."
+            );
+        }
+    }
+
+    const token =
+        await getAuthToken();
+
+    const response =
+        await fetch(
+            `${SERVER_URL}/profile-picture`,
+            {
+                method:
+                    "POST",
+
+                headers: {
+                    "Content-Type":
+                        "application/json",
+
+                    "Authorization":
+                        `Bearer ${token}`
+                },
+
+                body:
+                    JSON.stringify({
+                        profilePicture:
+                            cleanUrl
+                    })
+            }
+        );
+
+    const result =
+        await getServerResponse(
+            response
+        );
+
+    if (
+        !response.ok ||
+        !result.success
+    ) {
+
+        throw new Error(
+            result.message ||
+            "Could not save profile picture."
+        );
+    }
+
+    currentProfilePicture =
+        result.profilePicture ||
+        null;
+
+    updateProfilePicturePreview(
+        currentProfilePicture
+    );
+
+    return currentProfilePicture;
+}
+
+
+/* =====================================================
    SAVE PROFILE
    ===================================================== */
 
@@ -576,71 +799,25 @@ if (saveProfileButton) {
                 profileColor?.value ||
                 "#4285F4";
 
+            const profilePicture =
+                String(
+                    profilePictureInput?.value ||
+                    ""
+                ).trim();
+
             const nameCode =
                 String(
                     profileNameCodeInput?.value ||
                     ""
                 ).trim();
 
-            currentColor =
-                color;
-
-            if (colorInput) {
-
-                colorInput.value =
-                    currentColor;
-            }
-
-            if (
-                username ===
-                currentUsername
-            ) {
-
-                if (currentUserCode) {
-
-                    saveUser(
-                        currentUserCode,
-                        currentUsername,
-                        currentColor
-                    );
-                }
-
-                if (profileMessage) {
-
-                    profileMessage.textContent =
-                        "Color saved.";
-
-                    profileMessage.style.color =
-                        "#4285F4";
-                }
-
-                showNotification(
-                    "Color updated."
-                );
-
-                return;
-            }
-
-            if (!nameCode) {
-
-                if (profileMessage) {
-
-                    profileMessage.textContent =
-                        "A one-time name-change code is required.";
-
-                    profileMessage.style.color =
-                        "#d93025";
-                }
-
-                return;
-            }
 
             if (!username) {
 
                 if (profileMessage) {
 
                     profileMessage.textContent =
-                        "Enter a new username.";
+                        "Enter a username.";
 
                     profileMessage.style.color =
                         "#d93025";
@@ -648,6 +825,7 @@ if (saveProfileButton) {
 
                 return;
             }
+
 
             if (username.length > 30) {
 
@@ -663,89 +841,153 @@ if (saveProfileButton) {
                 return;
             }
 
+
+            if (
+                profilePicture &&
+                !profilePicture.startsWith(
+                    "https://"
+                )
+            ) {
+
+                if (profileMessage) {
+
+                    profileMessage.textContent =
+                        "Profile picture must use an HTTPS URL.";
+
+                    profileMessage.style.color =
+                        "#d93025";
+                }
+
+                return;
+            }
+
+
             try {
 
                 saveProfileButton.disabled =
                     true;
 
-                const token =
-                    await getAuthToken();
-
-                const response =
-                    await fetch(
-                        `${SERVER_URL}/change-username`,
-                        {
-                            method:
-                                "POST",
-
-                            headers: {
-                                "Content-Type":
-                                    "application/json",
-
-                                "Authorization":
-                                    `Bearer ${token}`
-                            },
-
-                            body:
-                                JSON.stringify({
-                                    username,
-                                    code:
-                                        nameCode
-                                })
-                        }
-                    );
-
-                const result =
-                    await getServerResponse(
-                        response
-                    );
 
                 if (
-                    !response.ok ||
-                    !result.success
+                    username !==
+                    currentUsername
                 ) {
 
-                    throw new Error(
-                        result.message ||
-                        "Could not change username."
-                    );
+                    if (!nameCode) {
+
+                        if (profileMessage) {
+
+                            profileMessage.textContent =
+                                "A one-time name-change code is required.";
+
+                            profileMessage.style.color =
+                                "#d93025";
+                        }
+
+                        return;
+                    }
+
+                    const token =
+                        await getAuthToken();
+
+                    const response =
+                        await fetch(
+                            `${SERVER_URL}/change-username`,
+                            {
+                                method:
+                                    "POST",
+
+                                headers: {
+                                    "Content-Type":
+                                        "application/json",
+
+                                    "Authorization":
+                                        `Bearer ${token}`
+                                },
+
+                                body:
+                                    JSON.stringify({
+                                        username,
+                                        code:
+                                            nameCode
+                                    })
+                            }
+                        );
+
+                    const result =
+                        await getServerResponse(
+                            response
+                        );
+
+                    if (
+                        !response.ok ||
+                        !result.success
+                    ) {
+
+                        throw new Error(
+                            result.message ||
+                            "Could not change username."
+                        );
+                    }
+
+                    currentUsername =
+                        result.username;
+
+                    if (profileNameCodeInput) {
+
+                        profileNameCodeInput.value =
+                            "";
+                    }
                 }
 
-                currentUsername =
-                    result.username;
+
+                await saveProfilePicture(
+                    profilePicture
+                );
+
+
+                currentColor =
+                    color;
+
+                if (colorInput) {
+
+                    colorInput.value =
+                        currentColor;
+                }
+
 
                 if (currentUserCode) {
 
                     saveUser(
                         currentUserCode,
                         currentUsername,
-                        currentColor
+                        currentColor,
+                        currentProfilePicture
                     );
                 }
 
-                if (profileNameCodeInput) {
 
-                    profileNameCodeInput.value =
-                        "";
-                }
+                updateProfilePicturePreview(
+                    currentProfilePicture
+                );
 
                 if (profileMessage) {
 
                     profileMessage.textContent =
-                        "Username changed successfully.";
+                        "Profile saved successfully.";
 
                     profileMessage.style.color =
                         "#4285F4";
                 }
 
                 showNotification(
-                    "Username changed."
+                    "Profile updated."
                 );
 
             } catch (error) {
 
                 console.error(
-                    "Username change error:",
+                    "Profile save error:",
                     error
                 );
 
@@ -753,7 +995,7 @@ if (saveProfileButton) {
 
                     profileMessage.textContent =
                         error.message ||
-                        "Could not change username.";
+                        "Could not save profile.";
 
                     profileMessage.style.color =
                         "#d93025";
@@ -825,7 +1067,9 @@ function showNotification(message) {
 
     setTimeout(
         () => {
+
             notification.remove();
+
         },
         3000
     );
@@ -915,12 +1159,23 @@ async function loadServerProfile() {
             currentUsername =
                 result.username;
 
+            currentProfilePicture =
+                result.profilePicture ||
+                null;
+
             if (currentUserCode) {
+
+                const savedUser =
+                    getSavedUser(
+                        currentUserCode
+                    );
 
                 saveUser(
                     currentUserCode,
                     currentUsername,
-                    currentColor
+                    savedUser?.color ||
+                        currentColor,
+                    currentProfilePicture
                 );
             }
 
@@ -1123,7 +1378,6 @@ joinButton?.addEventListener(
                     currentColor =
                         savedUser.color ||
                         "#4285F4";
-
                 } else {
 
                     currentColor =
@@ -1145,6 +1399,9 @@ joinButton?.addEventListener(
                 loadWhispers();
 
             } else {
+
+                currentProfilePicture =
+                    null;
 
                 showScreen(
                     "username"
@@ -1293,6 +1550,9 @@ usernameButton?.addEventListener(
             currentUsername =
                 savedUsername;
 
+            currentProfilePicture =
+                null;
+
             currentColor =
                 colorInput?.value ||
                 "#4285F4";
@@ -1300,7 +1560,8 @@ usernameButton?.addEventListener(
             saveUser(
                 currentUserCode,
                 currentUsername,
-                currentColor
+                currentColor,
+                currentProfilePicture
             );
 
             showScreen("chat");
@@ -1373,7 +1634,8 @@ colorInput?.addEventListener(
             saveUser(
                 currentUserCode,
                 currentUsername,
-                currentColor
+                currentColor,
+                currentProfilePicture
             );
         }
 
@@ -1961,8 +2223,10 @@ async function sendMessage() {
 
     setTimeout(
         () => {
+
             canSendMessage =
                 true;
+
         },
         1000
     );
@@ -2287,6 +2551,118 @@ messageInput?.addEventListener(
 
 
 /* =====================================================
+   CREATE AVATAR
+   ===================================================== */
+
+function createAvatar(
+    profilePicture,
+    username,
+    color
+) {
+
+    const avatar =
+        document.createElement(
+            "div"
+        );
+
+    avatar.style.width =
+        "36px";
+
+    avatar.style.height =
+        "36px";
+
+    avatar.style.minWidth =
+        "36px";
+
+    avatar.style.borderRadius =
+        "50%";
+
+    avatar.style.overflow =
+        "hidden";
+
+    avatar.style.display =
+        "flex";
+
+    avatar.style.alignItems =
+        "center";
+
+    avatar.style.justifyContent =
+        "center";
+
+    avatar.style.background =
+        color ||
+        "#4285F4";
+
+    avatar.style.color =
+        "white";
+
+    avatar.style.fontWeight =
+        "600";
+
+    avatar.style.fontSize =
+        "16px";
+
+    avatar.style.userSelect =
+        "none";
+
+    const cleanPicture =
+        String(
+            profilePicture || ""
+        ).trim();
+
+    if (cleanPicture) {
+
+        const image =
+            document.createElement(
+                "img"
+            );
+
+        image.src =
+            cleanPicture;
+
+        image.alt =
+            username ||
+            "Profile picture";
+
+        image.style.width =
+            "100%";
+
+        image.style.height =
+            "100%";
+
+        image.style.objectFit =
+            "cover";
+
+        image.style.display =
+            "block";
+
+        image.onerror = () => {
+
+            image.remove();
+
+            avatar.textContent =
+                (username || "?")
+                    .charAt(0)
+                    .toUpperCase();
+        };
+
+        avatar.appendChild(
+            image
+        );
+
+    } else {
+
+        avatar.textContent =
+            (username || "?")
+                .charAt(0)
+                .toUpperCase();
+    }
+
+    return avatar;
+}
+
+
+/* =====================================================
    LIVE PUBLIC MESSAGES
    ===================================================== */
 
@@ -2355,6 +2731,39 @@ function loadMessages() {
                         messageElement.className =
                             "message publicMessage";
 
+                        messageElement.style.display =
+                            "flex";
+
+                        messageElement.style.alignItems =
+                            "flex-start";
+
+                        messageElement.style.gap =
+                            "10px";
+
+
+                        const avatar =
+                            createAvatar(
+                                data.profilePicture,
+                                data.username ||
+                                    "Unknown",
+                                data.color ||
+                                    "#4285F4"
+                            );
+
+                        messageElement.appendChild(
+                            avatar
+                        );
+
+
+                        const content =
+                            document.createElement(
+                                "div"
+                            );
+
+                        content.style.minWidth =
+                            "0";
+
+
                         const usernameElement =
                             document.createElement(
                                 "strong"
@@ -2368,6 +2777,7 @@ function loadMessages() {
                             data.color ||
                             "#4285F4";
 
+
                         const textElement =
                             document.createElement(
                                 "span"
@@ -2376,12 +2786,17 @@ function loadMessages() {
                         textElement.textContent =
                             `: ${data.text || ""}`;
 
-                        messageElement.appendChild(
+
+                        content.appendChild(
                             usernameElement
                         );
 
-                        messageElement.appendChild(
+                        content.appendChild(
                             textElement
+                        );
+
+                        messageElement.appendChild(
+                            content
                         );
 
                         messagesContainer.appendChild(
@@ -2427,8 +2842,11 @@ function stopWhisperListeners() {
         unsubscribe => {
 
             try {
+
                 unsubscribe();
+
             } catch {
+
                 // Ignore unsubscribe errors
             }
         }
@@ -2491,15 +2909,75 @@ function loadWhispers() {
                 element.className =
                     "message whisperMessage";
 
+                element.style.display =
+                    "flex";
+
+                element.style.alignItems =
+                    "flex-start";
+
+                element.style.gap =
+                    "10px";
+
+
+                const isSender =
+                    whisper.senderUid ===
+                    user.uid;
+
+
+                const avatarUsername =
+                    isSender
+                        ? (
+                            whisper.senderUsername ||
+                            currentUsername ||
+                            "Unknown"
+                        )
+                        : (
+                            whisper.senderUsername ||
+                            "Unknown"
+                        );
+
+
+                const avatarPicture =
+                    isSender
+                        ? (
+                            whisper.senderProfilePicture ||
+                            currentProfilePicture
+                        )
+                        : (
+                            whisper.senderProfilePicture ||
+                            null
+                        );
+
+
+                const avatar =
+                    createAvatar(
+                        avatarPicture,
+                        avatarUsername,
+                        whisper.color ||
+                            "#4285F4"
+                    );
+
+                element.appendChild(
+                    avatar
+                );
+
+
+                const content =
+                    document.createElement(
+                        "div"
+                    );
+
+                content.style.minWidth =
+                    "0";
+
+
                 const label =
                     document.createElement(
                         "strong"
                     );
 
-                if (
-                    whisper.senderUid ===
-                    user.uid
-                ) {
+
+                if (isSender) {
 
                     label.textContent =
                         `Whisper to ${whisper.recipientUsername}: `;
@@ -2510,9 +2988,11 @@ function loadWhispers() {
                         `Whisper from ${whisper.senderUsername}: `;
                 }
 
+
                 label.style.color =
                     whisper.color ||
                     "#4285F4";
+
 
                 const text =
                     document.createElement(
@@ -2523,12 +3003,17 @@ function loadWhispers() {
                     whisper.text ||
                     "";
 
-                element.appendChild(
+
+                content.appendChild(
                     label
                 );
 
-                element.appendChild(
+                content.appendChild(
                     text
+                );
+
+                element.appendChild(
+                    content
                 );
 
                 messagesContainer.appendChild(
@@ -2722,6 +3207,9 @@ logoutButton?.addEventListener(
             currentColor =
                 "#4285F4";
 
+            currentProfilePicture =
+                null;
+
             isAdmin =
                 false;
 
@@ -2776,6 +3264,9 @@ onAuthStateChanged(
 
             currentColor =
                 "#4285F4";
+
+            currentProfilePicture =
+                null;
 
             isAdmin =
                 false;
@@ -2854,11 +3345,6 @@ onAuthStateChanged(
                     currentColor =
                         savedUser.color ||
                         "#4285F4";
-
-                } else {
-
-                    currentColor =
-                        "#4285F4";
                 }
 
                 if (colorInput) {
@@ -2876,6 +3362,9 @@ onAuthStateChanged(
                 loadWhispers();
 
             } else {
+
+                currentProfilePicture =
+                    null;
 
                 showScreen(
                     "username"
