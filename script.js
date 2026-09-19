@@ -871,7 +871,7 @@ async function sendMessage() {
 
     setTimeout(() => {
         canSendMessage = true;
-    }, 500);
+    }, 1000);
 
     const text =
         String(
