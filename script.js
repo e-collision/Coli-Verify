@@ -340,7 +340,9 @@ function updateProfilePicturePreview(url) {
     }
 
     const image =
-        document.createElement("img");
+        document.createElement(
+            "img"
+        );
 
     image.src =
         cleanUrl;
@@ -1095,10 +1097,15 @@ async function checkAdminStatus() {
             return false;
         }
 
+        /*
+         * Do NOT force a token refresh here.
+         * The token obtained during sign-in already
+         * contains the current custom claims.
+         */
+
         const tokenResult =
             await getIdTokenResult(
-                user,
-                true
+                user
             );
 
         isAdmin =
@@ -1660,9 +1667,12 @@ async function getAuthToken() {
         );
     }
 
-    return await user.getIdToken(
-        true
-    );
+    /*
+     * Do NOT force a token refresh here.
+     * Firebase will reuse the current valid token.
+     */
+
+    return await user.getIdToken();
 }
 
 
