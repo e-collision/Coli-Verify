@@ -11,10 +11,12 @@ import {
 import {
     getAuth,
     signInWithEmailAndPassword,
+    setPersistence,
+    browserLocalPersistence,
     onAuthStateChanged,
-    getIdTokenResult
+    getIdTokenResult,
+    signOut
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-
 
 /* =========================
    FIREBASE
@@ -35,8 +37,6 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const auth = getAuth(app);
-
-
 
 
 /* =========================
@@ -105,6 +105,10 @@ let isAdmin = false;
 let stopMessageListener = null;
 
 let canSendMessage = true;
+
+const LOGIN_DURATION = 4 * 24 * 60 * 60 * 1000;
+const LOGIN_TIME_KEY = "coliChatLoginTime";
+const ACTIVE_CODE_KEY = "coliChatActiveCode";
 
 
 /* =========================
@@ -327,6 +331,24 @@ if (joinButton) {
                 }
 
 
+                await setPersistence(
+                    auth,
+                    browserLocalPersistence
+                );
+
+
+                localStorage.setItem(
+                    LOGIN_TIME_KEY,
+                    Date.now().toString()
+                );
+
+
+                localStorage.setItem(
+                    ACTIVE_CODE_KEY,
+                    code
+                );
+
+
                 await signInWithEmailAndPassword(
                     auth,
                     result.email,
@@ -372,6 +394,14 @@ if (joinButton) {
                 }
 
             } catch (error) {
+
+                localStorage.removeItem(
+                    LOGIN_TIME_KEY
+                );
+
+                localStorage.removeItem(
+                    ACTIVE_CODE_KEY
+                );
 
                 console.error(
                     "Code verification error:",
@@ -883,7 +913,6 @@ async function sendMessage() {
         canSendMessage = true;
     }, 1000);
 
-    // Keep the rest of your original sendMessage code here
 
     /* /random_code */
 
@@ -1300,14 +1329,12 @@ onAuthStateChanged(
 
             isAdmin = false;
 
-
             if (stopMessageListener) {
 
                 stopMessageListener();
 
                 stopMessageListener = null;
             }
-
 
             showScreen("login");
 
@@ -1317,7 +1344,83 @@ onAuthStateChanged(
 
         try {
 
+            const loginTime =
+                Number(
+                    localStorage.getItem(
+                        LOGIN_TIME_KEY
+                    ) || 0
+                );
+
+
+            const savedCode =
+                localStorage.getItem(
+                    ACTIVE_CODE_KEY
+                );
+
+
+            if (
+                !loginTime ||
+                Date.now() - loginTime >= LOGIN_DURATION ||
+                !savedCode
+            ) {
+
+                localStorage.removeItem(
+                    LOGIN_TIME_KEY
+                );
+
+                localStorage.removeItem(
+                    ACTIVE_CODE_KEY
+                );
+
+                await signOut(auth);
+
+                showScreen("login");
+
+                return;
+            }
+
+
+            currentUserCode =
+                savedCode;
+
+
+            const savedUser =
+                getSavedUser(
+                    savedCode
+                );
+
+
             await checkAdminStatus();
+
+
+            if (savedUser) {
+
+                currentUsername =
+                    savedUser.username;
+
+                currentColor =
+                    savedUser.color ||
+                    "#4285F4";
+
+                if (colorInput) {
+                    colorInput.value =
+                        currentColor;
+                }
+
+                showScreen("chat");
+
+                loadMessages();
+
+            } else {
+
+                showScreen("username");
+
+                if (usernameInput) {
+                    usernameInput.value = "";
+                    usernameInput.focus();
+                }
+            }
+
 
         } catch (error) {
 
@@ -1325,6 +1428,8 @@ onAuthStateChanged(
                 "Auth state error:",
                 error
             );
+
+            showScreen("login");
         }
     }
 );
