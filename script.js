@@ -21,7 +21,7 @@ import {
    ========================= */
 
 const firebaseConfig = {
-    apiKey: "AIzaSyBAVEXNzez4YjSnnq-qJMRM2HiBWIDLoBE",
+    apiKey: "AIzaSyBAVEXNzezY4jSnnq-qJMRM2HiBWIDLoBE",
     authDomain: "coli-verify.firebaseapp.com",
     projectId: "coli-verify",
     storageBucket: "coli-verify.firebasestorage.app",
@@ -35,6 +35,9 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const auth = getAuth(app);
+
+console.log("Firebase API key:", app.options.apiKey);
+console.log("Firebase project:", app.options.projectId);
 
 
 /* =========================
@@ -101,9 +104,6 @@ let currentColor = "#4285F4";
 let isAdmin = false;
 
 let stopMessageListener = null;
-
-/* ADDED: message anti-spam lock */
-let sendMessageLocked = false;
 
 
 /* =========================
@@ -984,21 +984,6 @@ async function sendMessage() {
     }
 
 
-    /*
-     * Anti-spam protection.
-     *
-     * This prevents multiple Enter presses
-     * or clicks from creating duplicate
-     * messages while a message is sending.
-     */
-
-    if (sendMessageLocked) {
-        return;
-    }
-
-    sendMessageLocked = true;
-
-
     try {
 
         sendButton.disabled = true;
@@ -1078,17 +1063,6 @@ async function sendMessage() {
     } finally {
 
         sendButton.disabled = false;
-
-        /*
-         * Keep the message locked for
-         * 0.2 seconds after sending finishes.
-         */
-
-        await new Promise(resolve =>
-            setTimeout(resolve, 200)
-        );
-
-        sendMessageLocked = false;
     }
 }
 
