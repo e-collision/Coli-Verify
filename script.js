@@ -36,8 +36,7 @@ const db = getFirestore(app);
 
 const auth = getAuth(app);
 
-console.log("Firebase API key:", app.options.apiKey);
-console.log("Firebase project:", app.options.projectId);
+
 
 
 /* =========================
