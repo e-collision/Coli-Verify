@@ -863,7 +863,17 @@ async function clearChat() {
 
 async function sendMessage() {
 
+    const text =
+        String(
+            messageInput?.value || ""
+        ).trim();
+
+    if (!text) {
+        return;
+    }
+
     if (!canSendMessage) {
+        showNotification("Stop spamming");
         return;
     }
 
