@@ -18,6 +18,7 @@ import {
     signOut
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 
+
 /* =========================
    FIREBASE
    ========================= */
@@ -91,6 +92,47 @@ const messagesContainer =
 
 
 /* =========================
+   SIDEBAR ELEMENTS
+   ========================= */
+
+const chatTab =
+    document.getElementById("chatTab");
+
+const profileTab =
+    document.getElementById("profileTab");
+
+const settingsTab =
+    document.getElementById("settingsTab");
+
+const chatPage =
+    document.getElementById("chatPage");
+
+const profilePage =
+    document.getElementById("profilePage");
+
+const settingsPage =
+    document.getElementById("settingsPage");
+
+const profileUsername =
+    document.getElementById("profileUsername");
+
+const profileColor =
+    document.getElementById("profileColor");
+
+const profileColorValue =
+    document.getElementById("profileColorValue");
+
+const saveProfileButton =
+    document.getElementById("saveProfileButton");
+
+const profileMessage =
+    document.getElementById("profileMessage");
+
+const logoutButton =
+    document.getElementById("logoutButton");
+
+
+/* =========================
    STATE
    ========================= */
 
@@ -106,9 +148,14 @@ let stopMessageListener = null;
 
 let canSendMessage = true;
 
-const LOGIN_DURATION = 4 * 24 * 60 * 60 * 1000;
-const LOGIN_TIME_KEY = "coliChatLoginTime";
-const ACTIVE_CODE_KEY = "coliChatActiveCode";
+const LOGIN_DURATION =
+    4 * 24 * 60 * 60 * 1000;
+
+const LOGIN_TIME_KEY =
+    "coliChatLoginTime";
+
+const ACTIVE_CODE_KEY =
+    "coliChatActiveCode";
 
 
 /* =========================
@@ -116,18 +163,30 @@ const ACTIVE_CODE_KEY = "coliChatActiveCode";
    ========================= */
 
 function getSavedUsers() {
+
     try {
+
         return JSON.parse(
-            localStorage.getItem("coliChatUsers") || "{}"
+            localStorage.getItem(
+                "coliChatUsers"
+            ) || "{}"
         );
+
     } catch {
+
         return {};
     }
 }
 
 
-function saveUser(code, username, color) {
-    const users = getSavedUsers();
+function saveUser(
+    code,
+    username,
+    color
+) {
+
+    const users =
+        getSavedUsers();
 
     users[code] = {
         username,
@@ -142,7 +201,9 @@ function saveUser(code, username, color) {
 
 
 function getSavedUser(code) {
-    const users = getSavedUsers();
+
+    const users =
+        getSavedUsers();
 
     return users[code] || null;
 }
@@ -155,6 +216,7 @@ function getSavedUser(code) {
 function showScreen(screen) {
 
     if (loginScreen) {
+
         loginScreen.style.display =
             screen === "login"
                 ? "block"
@@ -162,6 +224,7 @@ function showScreen(screen) {
     }
 
     if (usernameScreen) {
+
         usernameScreen.style.display =
             screen === "username"
                 ? "block"
@@ -169,11 +232,280 @@ function showScreen(screen) {
     }
 
     if (chatScreen) {
+
         chatScreen.style.display =
             screen === "chat"
                 ? "flex"
                 : "none";
     }
+}
+
+
+/* =========================
+   SIDEBAR / PAGE SWITCHING
+   ========================= */
+
+function switchPage(pageName) {
+
+    if (!chatPage ||
+        !profilePage ||
+        !settingsPage) {
+        return;
+    }
+
+
+    const pages = [
+        chatPage,
+        profilePage,
+        settingsPage
+    ];
+
+
+    const tabs = [
+        chatTab,
+        profileTab,
+        settingsTab
+    ];
+
+
+    pages.forEach(page => {
+
+        page.classList.remove(
+            "activePage"
+        );
+    });
+
+
+    tabs.forEach(tab => {
+
+        if (tab) {
+            tab.classList.remove(
+                "active"
+            );
+        }
+    });
+
+
+    if (pageName === "chat") {
+
+        chatPage.classList.add(
+            "activePage"
+        );
+
+        chatTab?.classList.add(
+            "active"
+        );
+
+        if (messageInput) {
+            messageInput.focus();
+        }
+
+        return;
+    }
+
+
+    if (pageName === "profile") {
+
+        profilePage.classList.add(
+            "activePage"
+        );
+
+        profileTab?.classList.add(
+            "active"
+        );
+
+        updateProfilePage();
+
+        return;
+    }
+
+
+    if (pageName === "settings") {
+
+        settingsPage.classList.add(
+            "activePage"
+        );
+
+        settingsTab?.classList.add(
+            "active"
+        );
+    }
+}
+
+
+/* =========================
+   SIDEBAR BUTTONS
+   ========================= */
+
+if (chatTab) {
+
+    chatTab.addEventListener(
+        "click",
+        () => {
+            switchPage("chat");
+        }
+    );
+}
+
+
+if (profileTab) {
+
+    profileTab.addEventListener(
+        "click",
+        () => {
+            switchPage("profile");
+        }
+    );
+}
+
+
+if (settingsTab) {
+
+    settingsTab.addEventListener(
+        "click",
+        () => {
+            switchPage("settings");
+        }
+    );
+}
+
+
+/* =========================
+   PROFILE PAGE
+   ========================= */
+
+function updateProfilePage() {
+
+    if (profileUsername) {
+
+        profileUsername.value =
+            currentUsername || "";
+    }
+
+    if (profileColor) {
+
+        profileColor.value =
+            currentColor || "#4285F4";
+    }
+
+    updateProfileColorText();
+
+    if (profileMessage) {
+
+        profileMessage.textContent =
+            "";
+    }
+}
+
+
+function updateProfileColorText() {
+
+    if (!profileColorValue) {
+        return;
+    }
+
+    profileColorValue.textContent =
+        profileColor?.value ||
+        currentColor ||
+        "#4285F4";
+}
+
+
+if (profileColor) {
+
+    profileColor.addEventListener(
+        "input",
+        updateProfileColorText
+    );
+}
+
+
+if (saveProfileButton) {
+
+    saveProfileButton.addEventListener(
+        "click",
+        () => {
+
+            const username =
+                String(
+                    profileUsername?.value ||
+                    ""
+                ).trim();
+
+            const color =
+                profileColor?.value ||
+                "#4285F4";
+
+
+            if (!username) {
+
+                if (profileMessage) {
+
+                    profileMessage.textContent =
+                        "Enter a username.";
+
+                    profileMessage.style.color =
+                        "#d93025";
+                }
+
+                return;
+            }
+
+
+            if (username.length > 30) {
+
+                if (profileMessage) {
+
+                    profileMessage.textContent =
+                        "Username must be 30 characters or less.";
+
+                    profileMessage.style.color =
+                        "#d93025";
+                }
+
+                return;
+            }
+
+
+            currentUsername =
+                username;
+
+            currentColor =
+                color;
+
+
+            if (colorInput) {
+
+                colorInput.value =
+                    currentColor;
+            }
+
+
+            if (currentUserCode) {
+
+                saveUser(
+                    currentUserCode,
+                    currentUsername,
+                    currentColor
+                );
+            }
+
+
+            if (profileMessage) {
+
+                profileMessage.textContent =
+                    "Profile saved.";
+
+                profileMessage.style.color =
+                    "#4285F4";
+            }
+
+
+            showNotification(
+                "Profile updated."
+            );
+        }
+    );
 }
 
 
@@ -186,34 +518,47 @@ function showNotification(message) {
     const notification =
         document.createElement("div");
 
-    notification.textContent = message;
+    notification.textContent =
+        message;
 
-    notification.style.position = "fixed";
+    notification.style.position =
+        "fixed";
 
-    notification.style.bottom = "25px";
+    notification.style.bottom =
+        "25px";
 
-    notification.style.left = "50%";
+    notification.style.left =
+        "50%";
 
     notification.style.transform =
         "translateX(-50%)";
 
-    notification.style.background = "#222";
+    notification.style.background =
+        "#222";
 
-    notification.style.color = "white";
+    notification.style.color =
+        "white";
 
     notification.style.padding =
         "12px 20px";
 
-    notification.style.borderRadius = "10px";
+    notification.style.borderRadius =
+        "10px";
 
-    notification.style.fontSize = "14px";
+    notification.style.fontSize =
+        "14px";
 
-    notification.style.zIndex = "99999";
+    notification.style.zIndex =
+        "99999";
 
-    document.body.appendChild(notification);
+    document.body.appendChild(
+        notification
+    );
 
     setTimeout(() => {
+
         notification.remove();
+
     }, 3000);
 }
 
@@ -226,12 +571,16 @@ async function checkAdminStatus() {
 
     try {
 
-        const user = auth.currentUser;
+        const user =
+            auth.currentUser;
 
         if (!user) {
+
             isAdmin = false;
+
             return false;
         }
+
 
         const tokenResult =
             await getIdTokenResult(
@@ -239,8 +588,10 @@ async function checkAdminStatus() {
                 true
             );
 
+
         isAdmin =
             tokenResult.claims.admin === true;
+
 
         return isAdmin;
 
@@ -273,9 +624,11 @@ if (joinButton) {
                     codeInput?.value || ""
                 ).trim();
 
+
             if (!code) {
 
                 if (errorMessage) {
+
                     errorMessage.textContent =
                         "Enter a code.";
                 }
@@ -283,12 +636,16 @@ if (joinButton) {
                 return;
             }
 
+
             joinButton.disabled = true;
 
+
             if (errorMessage) {
+
                 errorMessage.textContent =
-                    "Checking code...";
+                    "Checking code.";
             }
+
 
             try {
 
@@ -309,6 +666,7 @@ if (joinButton) {
                         }
                     );
 
+
                 if (!response.ok) {
 
                     throw new Error(
@@ -316,12 +674,15 @@ if (joinButton) {
                     );
                 }
 
+
                 const result =
                     await response.json();
+
 
                 if (!result.success) {
 
                     if (errorMessage) {
+
                         errorMessage.textContent =
                             result.message ||
                             "Invalid code.";
@@ -359,11 +720,13 @@ if (joinButton) {
                 await checkAdminStatus();
 
 
-                currentUserCode = code;
+                currentUserCode =
+                    code;
 
 
                 const savedUser =
                     getSavedUser(code);
+
 
                 if (savedUser) {
 
@@ -374,12 +737,17 @@ if (joinButton) {
                         savedUser.color ||
                         "#4285F4";
 
+
                     if (colorInput) {
+
                         colorInput.value =
                             currentColor;
                     }
 
+
                     showScreen("chat");
+
+                    switchPage("chat");
 
                     loadMessages();
 
@@ -387,8 +755,12 @@ if (joinButton) {
 
                     showScreen("username");
 
+
                     if (usernameInput) {
-                        usernameInput.value = "";
+
+                        usernameInput.value =
+                            "";
+
                         usernameInput.focus();
                     }
                 }
@@ -403,10 +775,12 @@ if (joinButton) {
                     ACTIVE_CODE_KEY
                 );
 
+
                 console.error(
                     "Code verification error:",
                     error
                 );
+
 
                 if (errorMessage) {
 
@@ -434,7 +808,7 @@ if (joinButton) {
                     ) {
 
                         errorMessage.textContent =
-                            "Cannot connect to verification server. Make sure Node.js is running.";
+                            "Cannot connect to verification server. Make sure the backend is running.";
 
                     } else {
 
@@ -446,7 +820,8 @@ if (joinButton) {
 
             } finally {
 
-                joinButton.disabled = false;
+                joinButton.disabled =
+                    false;
             }
         }
     );
@@ -464,6 +839,7 @@ if (codeInput) {
         event => {
 
             if (event.key === "Enter") {
+
                 joinButton?.click();
             }
         }
@@ -483,12 +859,15 @@ if (usernameButton) {
 
             const username =
                 String(
-                    usernameInput?.value || ""
+                    usernameInput?.value ||
+                    ""
                 ).trim();
+
 
             if (!username) {
 
                 if (usernameError) {
+
                     usernameError.textContent =
                         "Enter a username.";
                 }
@@ -496,9 +875,11 @@ if (usernameButton) {
                 return;
             }
 
+
             if (username.length > 30) {
 
                 if (usernameError) {
+
                     usernameError.textContent =
                         "Username must be 30 characters or less.";
                 }
@@ -506,11 +887,15 @@ if (usernameButton) {
                 return;
             }
 
-            currentUsername = username;
+
+            currentUsername =
+                username;
+
 
             currentColor =
                 colorInput?.value ||
                 "#4285F4";
+
 
             saveUser(
                 currentUserCode,
@@ -518,7 +903,10 @@ if (usernameButton) {
                 currentColor
             );
 
+
             showScreen("chat");
+
+            switchPage("chat");
 
             loadMessages();
         }
@@ -537,6 +925,7 @@ if (usernameInput) {
         event => {
 
             if (event.key === "Enter") {
+
                 usernameButton?.click();
             }
         }
@@ -557,6 +946,7 @@ if (colorInput) {
             currentColor =
                 colorInput.value ||
                 "#4285F4";
+
 
             if (
                 currentUserCode &&
@@ -580,13 +970,17 @@ if (colorInput) {
 
 async function getAuthToken() {
 
-    const user = auth.currentUser;
+    const user =
+        auth.currentUser;
+
 
     if (!user) {
+
         throw new Error(
             "You are not signed in."
         );
     }
+
 
     return await user.getIdToken(true);
 }
@@ -607,10 +1001,12 @@ async function generateRandomCode() {
         return;
     }
 
+
     try {
 
         const token =
             await getAuthToken();
+
 
         const response =
             await fetch(
@@ -628,8 +1024,10 @@ async function generateRandomCode() {
                 }
             );
 
+
         const result =
             await response.json();
+
 
         if (!result.success) {
 
@@ -639,9 +1037,11 @@ async function generateRandomCode() {
             );
         }
 
+
         showNotification(
             `New code: ${result.code}`
         );
+
 
         console.log(
             "Generated code:",
@@ -654,6 +1054,7 @@ async function generateRandomCode() {
             "Random code error:",
             error
         );
+
 
         showNotification(
             error.message ||
@@ -678,6 +1079,7 @@ async function muteChat(username) {
         return;
     }
 
+
     if (!username) {
 
         showNotification(
@@ -687,10 +1089,12 @@ async function muteChat(username) {
         return;
     }
 
+
     try {
 
         const token =
             await getAuthToken();
+
 
         const response =
             await fetch(
@@ -707,13 +1111,15 @@ async function muteChat(username) {
                     },
 
                     body: JSON.stringify({
-                        username: username
+                        username
                     })
                 }
             );
 
+
         const result =
             await response.json();
+
 
         if (!result.success) {
 
@@ -722,6 +1128,7 @@ async function muteChat(username) {
                 "Could not mute user."
             );
         }
+
 
         showNotification(
             `${result.username} has been muted.`
@@ -733,6 +1140,7 @@ async function muteChat(username) {
             "Mute error:",
             error
         );
+
 
         showNotification(
             error.message ||
@@ -757,6 +1165,7 @@ async function unmuteChat(username) {
         return;
     }
 
+
     if (!username) {
 
         showNotification(
@@ -766,10 +1175,12 @@ async function unmuteChat(username) {
         return;
     }
 
+
     try {
 
         const token =
             await getAuthToken();
+
 
         const response =
             await fetch(
@@ -786,13 +1197,15 @@ async function unmuteChat(username) {
                     },
 
                     body: JSON.stringify({
-                        username: username
+                        username
                     })
                 }
             );
 
+
         const result =
             await response.json();
+
 
         if (!result.success) {
 
@@ -801,6 +1214,7 @@ async function unmuteChat(username) {
                 "Could not unmute user."
             );
         }
+
 
         showNotification(
             `${result.username} has been unmuted.`
@@ -812,6 +1226,7 @@ async function unmuteChat(username) {
             "Unmute error:",
             error
         );
+
 
         showNotification(
             error.message ||
@@ -836,10 +1251,12 @@ async function clearChat() {
         return;
     }
 
+
     try {
 
         const token =
             await getAuthToken();
+
 
         const response =
             await fetch(
@@ -857,8 +1274,10 @@ async function clearChat() {
                 }
             );
 
+
         const result =
             await response.json();
+
 
         if (!result.success) {
 
@@ -867,6 +1286,7 @@ async function clearChat() {
                 "Could not clear chat."
             );
         }
+
 
         showNotification(
             `Chat cleared (${result.deleted || 0} messages).`
@@ -878,6 +1298,7 @@ async function clearChat() {
             "Clear chat error:",
             error
         );
+
 
         showNotification(
             error.message ||
@@ -895,22 +1316,35 @@ async function sendMessage() {
 
     const text =
         String(
-            messageInput?.value || ""
+            messageInput?.value ||
+            ""
         ).trim();
+
 
     if (!text) {
         return;
     }
 
+
     if (!canSendMessage) {
-        showNotification("Stop spamming");
+
+        showNotification(
+            "Stop spamming"
+        );
+
         return;
     }
 
-    canSendMessage = false;
+
+    canSendMessage =
+        false;
+
 
     setTimeout(() => {
-        canSendMessage = true;
+
+        canSendMessage =
+            true;
+
     }, 1000);
 
 
@@ -938,9 +1372,11 @@ async function sendMessage() {
         const username =
             text.substring(6).trim();
 
+
         if (messageInput) {
             messageInput.value = "";
         }
+
 
         await muteChat(username);
 
@@ -958,9 +1394,11 @@ async function sendMessage() {
         const username =
             text.substring(8).trim();
 
+
         if (messageInput) {
             messageInput.value = "";
         }
+
 
         await unmuteChat(username);
 
@@ -975,6 +1413,7 @@ async function sendMessage() {
         if (messageInput) {
             messageInput.value = "";
         }
+
 
         showNotification(
             "Usage: /mute <username>"
@@ -992,6 +1431,7 @@ async function sendMessage() {
             messageInput.value = "";
         }
 
+
         showNotification(
             "Usage: /unmute <username>"
         );
@@ -1007,6 +1447,7 @@ async function sendMessage() {
         if (messageInput) {
             messageInput.value = "";
         }
+
 
         await clearChat();
 
@@ -1028,7 +1469,8 @@ async function sendMessage() {
 
     try {
 
-        sendButton.disabled = true;
+        sendButton.disabled =
+            true;
 
 
         const token =
@@ -1097,6 +1539,7 @@ async function sendMessage() {
             error
         );
 
+
         showNotification(
             error.message ||
             "Could not send message."
@@ -1104,7 +1547,8 @@ async function sendMessage() {
 
     } finally {
 
-        sendButton.disabled = false;
+        sendButton.disabled =
+            false;
     }
 }
 
@@ -1200,8 +1644,7 @@ function loadMessages() {
 
 
                 /*
-                 * Save the current scroll
-                 * position.
+                 * Save current scroll position.
                  */
 
                 const oldScrollTop =
@@ -1212,7 +1655,8 @@ function loadMessages() {
                  * Rebuild messages.
                  */
 
-                messagesContainer.innerHTML = "";
+                messagesContainer.innerHTML =
+                    "";
 
 
                 snapshot.forEach(
@@ -1276,11 +1720,8 @@ function loadMessages() {
 
 
                 /*
-                 * If the user was near the bottom,
-                 * stay at the bottom.
-                 *
-                 * Otherwise, keep their position
-                 * so they can read old messages.
+                 * Keep the user at the bottom
+                 * when appropriate.
                  */
 
                 if (wasNearBottom) {
@@ -1302,11 +1743,93 @@ function loadMessages() {
                     error
                 );
 
+
                 showNotification(
                     "Could not update messages."
                 );
             }
         );
+}
+
+
+/* =========================
+   LOGOUT
+   ========================= */
+
+if (logoutButton) {
+
+    logoutButton.addEventListener(
+        "click",
+        async () => {
+
+            try {
+
+                if (stopMessageListener) {
+
+                    stopMessageListener();
+
+                    stopMessageListener =
+                        null;
+                }
+
+
+                localStorage.removeItem(
+                    LOGIN_TIME_KEY
+                );
+
+
+                localStorage.removeItem(
+                    ACTIVE_CODE_KEY
+                );
+
+
+                await signOut(auth);
+
+
+                currentUserCode =
+                    null;
+
+                currentUsername =
+                    null;
+
+                currentColor =
+                    "#4285F4";
+
+                isAdmin =
+                    false;
+
+
+                showScreen("login");
+
+
+                if (codeInput) {
+                    codeInput.value = "";
+                }
+
+
+                if (errorMessage) {
+                    errorMessage.textContent = "";
+                }
+
+
+                showNotification(
+                    "You have been logged out."
+                );
+
+            } catch (error) {
+
+                console.error(
+                    "Logout error:",
+                    error
+                );
+
+
+                showNotification(
+                    "Could not log out."
+                );
+            }
+        }
+    );
 }
 
 
@@ -1321,20 +1844,27 @@ onAuthStateChanged(
 
         if (!user) {
 
-            currentUserCode = null;
+            currentUserCode =
+                null;
 
-            currentUsername = null;
+            currentUsername =
+                null;
 
-            currentColor = "#4285F4";
+            currentColor =
+                "#4285F4";
 
-            isAdmin = false;
+            isAdmin =
+                false;
+
 
             if (stopMessageListener) {
 
                 stopMessageListener();
 
-                stopMessageListener = null;
+                stopMessageListener =
+                    null;
             }
+
 
             showScreen("login");
 
@@ -1360,7 +1890,8 @@ onAuthStateChanged(
 
             if (
                 !loginTime ||
-                Date.now() - loginTime >= LOGIN_DURATION ||
+                Date.now() - loginTime >=
+                    LOGIN_DURATION ||
                 !savedCode
             ) {
 
@@ -1368,11 +1899,14 @@ onAuthStateChanged(
                     LOGIN_TIME_KEY
                 );
 
+
                 localStorage.removeItem(
                     ACTIVE_CODE_KEY
                 );
 
+
                 await signOut(auth);
+
 
                 showScreen("login");
 
@@ -1402,12 +1936,17 @@ onAuthStateChanged(
                     savedUser.color ||
                     "#4285F4";
 
+
                 if (colorInput) {
+
                     colorInput.value =
                         currentColor;
                 }
 
+
                 showScreen("chat");
+
+                switchPage("chat");
 
                 loadMessages();
 
@@ -1415,12 +1954,15 @@ onAuthStateChanged(
 
                 showScreen("username");
 
+
                 if (usernameInput) {
-                    usernameInput.value = "";
+
+                    usernameInput.value =
+                        "";
+
                     usernameInput.focus();
                 }
             }
-
 
         } catch (error) {
 
@@ -1428,6 +1970,7 @@ onAuthStateChanged(
                 "Auth state error:",
                 error
             );
+
 
             showScreen("login");
         }
@@ -1440,3 +1983,5 @@ onAuthStateChanged(
    ========================= */
 
 showScreen("login");
+
+switchPage("chat");

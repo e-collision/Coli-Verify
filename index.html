@@ -38,7 +38,7 @@
             type="text"
             id="usernameInput"
             placeholder="Enter username"
-            maxlength="20"
+            maxlength="30"
             autocomplete="off"
         >
 
@@ -57,25 +57,171 @@
     </div>
 
 
-    <!-- Chat screen -->
-    <div class="chatContainer" id="chatScreen" style="display: none;">
+    <!-- Chat application -->
+    <div class="appContainer" id="chatScreen" style="display: none;">
 
-        <h1>Coli Chat</h1>
+        <!-- Sidebar -->
+        <aside class="sidebar">
 
-        <div id="messages"></div>
+            <div class="sidebarHeader">
+                <h2>Coli Chat</h2>
+            </div>
 
-        <div class="messageBox">
+            <nav class="sidebarNav">
 
-            <input
-                type="text"
-                id="messageInput"
-                placeholder="Type a message..."
-                autocomplete="off"
+                <button
+                    class="sidebarTab active"
+                    id="chatTab"
+                    data-page="chatPage"
+                >
+                    Chat
+                </button>
+
+                <button
+                    class="sidebarTab"
+                    id="profileTab"
+                    data-page="profilePage"
+                >
+                    Profile
+                </button>
+
+                <button
+                    class="sidebarTab"
+                    id="settingsTab"
+                    data-page="settingsPage"
+                >
+                    Settings
+                </button>
+
+            </nav>
+
+        </aside>
+
+
+        <!-- Main content -->
+        <main class="mainContent">
+
+            <!-- CHAT PAGE -->
+            <section
+                class="appPage activePage"
+                id="chatPage"
             >
 
-            <button id="sendButton">Send</button>
+                <div class="pageHeader">
+                    <h1>Chat</h1>
+                </div>
 
-        </div>
+                <div id="messages"></div>
+
+                <div class="messageBox">
+
+                    <input
+                        type="text"
+                        id="messageInput"
+                        placeholder="Type a message..."
+                        autocomplete="off"
+                    >
+
+                    <button id="sendButton">
+                        Send
+                    </button>
+
+                </div>
+
+            </section>
+
+
+            <!-- PROFILE PAGE -->
+            <section
+                class="appPage"
+                id="profilePage"
+            >
+
+                <div class="pageHeader">
+                    <h1>Profile</h1>
+                </div>
+
+                <div class="settingsCard">
+
+                    <h2>Your Profile</h2>
+
+                    <label for="profileUsername">
+                        Username
+                    </label>
+
+                    <input
+                        type="text"
+                        id="profileUsername"
+                        maxlength="30"
+                        autocomplete="off"
+                    >
+
+                    <label for="profileColor">
+                        Chat Color
+                    </label>
+
+                    <div class="colorRow">
+
+                        <input
+                            type="color"
+                            id="profileColor"
+                            value="#4285F4"
+                        >
+
+                        <span id="profileColorValue">
+                            #4285F4
+                        </span>
+
+                    </div>
+
+                    <button
+                        class="primaryButton"
+                        id="saveProfileButton"
+                    >
+                        Save Profile
+                    </button>
+
+                    <p
+                        class="pageMessage"
+                        id="profileMessage"
+                    ></p>
+
+                </div>
+
+            </section>
+
+
+            <!-- SETTINGS PAGE -->
+            <section
+                class="appPage"
+                id="settingsPage"
+            >
+
+                <div class="pageHeader">
+                    <h1>Settings</h1>
+                </div>
+
+                <div class="settingsCard">
+
+                    <h2>Account</h2>
+
+                    <p>
+                        Your login session is saved on this device
+                        for up to 4 days.
+                    </p>
+
+                    <button
+                        class="dangerButton"
+                        id="logoutButton"
+                    >
+                        Log Out
+                    </button>
+
+                </div>
+
+            </section>
+
+        </main>
 
     </div>
 

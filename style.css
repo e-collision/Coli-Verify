@@ -12,7 +12,9 @@ body {
 }
 
 
-/* Login / username screens */
+/* =========================
+   LOGIN / USERNAME
+   ========================= */
 
 .container {
     width: 90%;
@@ -71,36 +73,152 @@ body {
 
 
 /* =========================
-   CHAT
+   MAIN APPLICATION
    ========================= */
 
-.chatContainer {
-    width: 90%;
-    max-width: 700px;
-
-    height: 80vh;
-    max-height: 80vh;
-
-    margin: 5vh auto;
-    padding: 20px;
-
-    background: white;
-    border-radius: 15px;
-
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+.appContainer {
+    width: 100%;
+    height: 100vh;
 
     display: flex;
-    flex-direction: column;
+
+    background: #f2f2f2;
 
     overflow: hidden;
 }
 
 
-/* Chat title */
+/* =========================
+   SIDEBAR
+   ========================= */
 
-.chatContainer h1 {
-    margin: 0 0 15px 0;
+.sidebar {
+    width: 230px;
+    min-width: 230px;
+
+    height: 100%;
+
+    background: white;
+
+    border-right: 1px solid #ddd;
+
+    display: flex;
+    flex-direction: column;
+
+    padding: 20px 12px;
+}
+
+
+.sidebarHeader {
+    padding: 5px 12px 25px;
+}
+
+.sidebarHeader h2 {
+    margin: 0;
+
+    font-size: 22px;
+
+    color: #222;
+}
+
+
+.sidebarNav {
+    display: flex;
+    flex-direction: column;
+
+    gap: 6px;
+}
+
+
+.sidebarTab {
+    width: 100%;
+
+    padding: 13px 14px;
+
+    border: none;
+    border-radius: 8px;
+
+    background: transparent;
+
+    color: #333;
+
+    font-size: 16px;
+
+    text-align: left;
+
+    cursor: pointer;
+
+    transition:
+        background 0.15s ease,
+        color 0.15s ease;
+}
+
+
+.sidebarTab:hover {
+    background: #f1f1f1;
+}
+
+
+.sidebarTab.active {
+    background: #4285F4;
+
+    color: white;
+}
+
+
+/* =========================
+   MAIN CONTENT
+   ========================= */
+
+.mainContent {
+    flex: 1;
+
+    min-width: 0;
+    min-height: 0;
+
+    height: 100%;
+
+    padding: 25px;
+
+    overflow: hidden;
+}
+
+
+.appPage {
+    width: 100%;
+    height: 100%;
+
+    display: none;
+
+    flex-direction: column;
+
+    min-width: 0;
+    min-height: 0;
+}
+
+
+.appPage.activePage {
+    display: flex;
+}
+
+
+/* =========================
+   PAGE HEADER
+   ========================= */
+
+.pageHeader {
     flex: 0 0 auto;
+
+    margin-bottom: 15px;
+}
+
+
+.pageHeader h1 {
+    margin: 0;
+
+    font-size: 28px;
+
+    color: #222;
 }
 
 
@@ -112,6 +230,7 @@ body {
     width: 100%;
 
     flex: 1 1 0;
+
     min-height: 0;
 
     overflow-y: auto;
@@ -119,17 +238,20 @@ body {
 
     padding: 10px;
 
+    background: white;
+
     border: 1px solid #ddd;
     border-radius: 10px;
 
     margin: 0 0 10px 0;
 
-    /* Makes sure the message area itself scrolls */
     overscroll-behavior: contain;
 }
 
 
-/* Individual messages */
+/* =========================
+   INDIVIDUAL MESSAGES
+   ========================= */
 
 .message {
     display: block;
@@ -137,6 +259,7 @@ body {
     width: 100%;
 
     padding: 8px 12px;
+
     margin: 6px 0;
 
     background: #f0f0f0;
@@ -164,6 +287,7 @@ body {
     flex: 0 0 auto;
 }
 
+
 .messageBox input {
     flex: 1 1 auto;
 
@@ -172,10 +296,19 @@ body {
     padding: 12px;
 
     border: 1px solid #ccc;
+
     border-radius: 8px;
 
     font-size: 16px;
+
+    outline: none;
 }
+
+
+.messageBox input:focus {
+    border-color: #4285F4;
+}
+
 
 .messageBox button {
     flex: 0 0 auto;
@@ -183,6 +316,7 @@ body {
     padding: 12px 20px;
 
     border: none;
+
     border-radius: 8px;
 
     font-size: 16px;
@@ -190,11 +324,173 @@ body {
     cursor: pointer;
 
     background: #4285F4;
+
     color: white;
 }
 
+
 .messageBox button:hover {
     opacity: 0.9;
+}
+
+
+.messageBox button:disabled {
+    opacity: 0.6;
+
+    cursor: not-allowed;
+}
+
+
+/* =========================
+   PROFILE / SETTINGS
+   ========================= */
+
+.settingsCard {
+    width: 100%;
+    max-width: 600px;
+
+    background: white;
+
+    border: 1px solid #ddd;
+
+    border-radius: 12px;
+
+    padding: 25px;
+
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+}
+
+
+.settingsCard h2 {
+    margin-top: 0;
+
+    margin-bottom: 20px;
+
+    color: #222;
+}
+
+
+.settingsCard p {
+    color: #555;
+
+    line-height: 1.5;
+}
+
+
+.settingsCard label {
+    display: block;
+
+    margin-top: 18px;
+    margin-bottom: 7px;
+
+    font-weight: bold;
+
+    color: #333;
+}
+
+
+.settingsCard input[type="text"] {
+    width: 100%;
+
+    padding: 12px;
+
+    border: 1px solid #ccc;
+
+    border-radius: 8px;
+
+    font-size: 16px;
+
+    outline: none;
+}
+
+
+.settingsCard input[type="text"]:focus {
+    border-color: #4285F4;
+}
+
+
+.colorRow {
+    display: flex;
+
+    align-items: center;
+
+    gap: 12px;
+}
+
+
+.colorRow input[type="color"] {
+    width: 60px;
+    height: 45px;
+
+    padding: 3px;
+
+    border: 1px solid #ccc;
+
+    border-radius: 8px;
+
+    cursor: pointer;
+}
+
+
+#profileColorValue {
+    font-family: monospace;
+
+    color: #555;
+}
+
+
+.primaryButton {
+    margin-top: 22px;
+
+    padding: 12px 20px;
+
+    border: none;
+
+    border-radius: 8px;
+
+    background: #4285F4;
+
+    color: white;
+
+    font-size: 16px;
+
+    cursor: pointer;
+}
+
+
+.primaryButton:hover {
+    opacity: 0.9;
+}
+
+
+.dangerButton {
+    padding: 12px 20px;
+
+    border: none;
+
+    border-radius: 8px;
+
+    background: #d93025;
+
+    color: white;
+
+    font-size: 16px;
+
+    cursor: pointer;
+}
+
+
+.dangerButton:hover {
+    opacity: 0.9;
+}
+
+
+.pageMessage {
+    min-height: 20px;
+
+    margin-top: 12px;
+
+    color: #4285F4;
 }
 
 
@@ -202,23 +498,81 @@ body {
    MOBILE
    ========================= */
 
-@media (max-width: 600px) {
+@media (max-width: 700px) {
 
-    .chatContainer {
-        width: 95%;
-        height: 90vh;
-        max-height: 90vh;
+    .sidebar {
+        width: 180px;
+        min-width: 180px;
 
-        margin: 5vh auto;
+        padding: 15px 8px;
+    }
 
+
+    .sidebarHeader {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+
+    .sidebarHeader h2 {
+        font-size: 19px;
+    }
+
+
+    .sidebarTab {
+        font-size: 14px;
+
+        padding: 12px 10px;
+    }
+
+
+    .mainContent {
         padding: 15px;
     }
+
+
+    .pageHeader h1 {
+        font-size: 24px;
+    }
+
 
     .messageBox {
         gap: 5px;
     }
 
+
     .messageBox button {
         padding: 12px 15px;
+    }
+}
+
+
+@media (max-width: 450px) {
+
+    .sidebar {
+        width: 130px;
+        min-width: 130px;
+    }
+
+
+    .sidebarHeader h2 {
+        font-size: 17px;
+    }
+
+
+    .sidebarTab {
+        font-size: 13px;
+
+        padding: 11px 8px;
+    }
+
+
+    .mainContent {
+        padding: 10px;
+    }
+
+
+    .messageBox button {
+        padding: 12px;
     }
 }
