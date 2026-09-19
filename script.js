@@ -1,10 +1,13 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import {
+    initializeApp
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 
 import {
     getFirestore,
     collection,
     query,
     orderBy,
+    where,
     onSnapshot
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
@@ -19,9 +22,9 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 
 
-/* =========================
+/* =====================================================
    FIREBASE
-   ========================= */
+   ===================================================== */
 
 const firebaseConfig = {
     apiKey: "AIzaSyBAVEXNzezY4jSnnq-qJMRM2HiBWIDLoBE",
@@ -33,23 +36,27 @@ const firebaseConfig = {
     measurementId: "G-BW9C2WE4Q5"
 };
 
-const app = initializeApp(firebaseConfig);
+const app =
+    initializeApp(firebaseConfig);
 
-const db = getFirestore(app);
+const db =
+    getFirestore(app);
 
-const auth = getAuth(app);
+const auth =
+    getAuth(app);
 
 
-/* =========================
+/* =====================================================
    SERVER
-   ========================= */
+   ===================================================== */
 
-const SERVER_URL = "https://coli-verify-1.onrender.com";
+const SERVER_URL =
+    "https://coli-verify-1.onrender.com";
 
 
-/* =========================
+/* =====================================================
    ELEMENTS
-   ========================= */
+   ===================================================== */
 
 const loginScreen =
     document.getElementById("loginScreen");
@@ -91,9 +98,9 @@ const messagesContainer =
     document.getElementById("messages");
 
 
-/* =========================
-   SIDEBAR ELEMENTS
-   ========================= */
+/* =====================================================
+   SIDEBAR
+   ===================================================== */
 
 const chatTab =
     document.getElementById("chatTab");
@@ -123,28 +130,38 @@ const profileColorValue =
     document.getElementById("profileColorValue");
 
 const saveProfileButton =
-    document.getElementById("saveProfileButton");
+    document.getElementById(
+        "saveProfileButton"
+    );
 
 const profileMessage =
-    document.getElementById("profileMessage");
+    document.getElementById(
+        "profileMessage"
+    );
 
 const logoutButton =
-    document.getElementById("logoutButton");
+    document.getElementById(
+        "logoutButton"
+    );
 
 
-/* =========================
+/* =====================================================
    STATE
-   ========================= */
+   ===================================================== */
 
 let currentUserCode = null;
 
 let currentUsername = null;
 
-let currentColor = "#4285F4";
+let currentColor =
+    "#4285F4";
 
 let isAdmin = false;
 
-let stopMessageListener = null;
+let stopMessageListener =
+    null;
+
+let whisperListeners = [];
 
 let canSendMessage = true;
 
@@ -158,9 +175,9 @@ const ACTIVE_CODE_KEY =
     "coliChatActiveCode";
 
 
-/* =========================
+/* =====================================================
    LOCAL USER STORAGE
-   ========================= */
+   ===================================================== */
 
 function getSavedUsers() {
 
@@ -209,9 +226,9 @@ function getSavedUser(code) {
 }
 
 
-/* =========================
+/* =====================================================
    SCREEN CONTROL
-   ========================= */
+   ===================================================== */
 
 function showScreen(screen) {
 
@@ -241,18 +258,19 @@ function showScreen(screen) {
 }
 
 
-/* =========================
-   SIDEBAR / PAGE SWITCHING
-   ========================= */
+/* =====================================================
+   PAGE SWITCHING
+   ===================================================== */
 
 function switchPage(pageName) {
 
-    if (!chatPage ||
+    if (
+        !chatPage ||
         !profilePage ||
-        !settingsPage) {
+        !settingsPage
+    ) {
         return;
     }
-
 
     const pages = [
         chatPage,
@@ -260,31 +278,31 @@ function switchPage(pageName) {
         settingsPage
     ];
 
-
     const tabs = [
         chatTab,
         profileTab,
         settingsTab
     ];
 
-
-    pages.forEach(page => {
-
-        page.classList.remove(
-            "activePage"
-        );
-    });
-
-
-    tabs.forEach(tab => {
-
-        if (tab) {
-            tab.classList.remove(
-                "active"
+    pages.forEach(
+        page => {
+            page.classList.remove(
+                "activePage"
             );
         }
-    });
+    );
 
+    tabs.forEach(
+        tab => {
+
+            if (tab) {
+
+                tab.classList.remove(
+                    "active"
+                );
+            }
+        }
+    );
 
     if (pageName === "chat") {
 
@@ -296,13 +314,8 @@ function switchPage(pageName) {
             "active"
         );
 
-        if (messageInput) {
-            messageInput.focus();
-        }
-
         return;
     }
-
 
     if (pageName === "profile") {
 
@@ -319,7 +332,6 @@ function switchPage(pageName) {
         return;
     }
 
-
     if (pageName === "settings") {
 
         settingsPage.classList.add(
@@ -333,48 +345,139 @@ function switchPage(pageName) {
 }
 
 
-/* =========================
+/* =====================================================
    SIDEBAR BUTTONS
-   ========================= */
+   ===================================================== */
 
-if (chatTab) {
+chatTab?.addEventListener(
+    "click",
+    () => switchPage("chat")
+);
 
-    chatTab.addEventListener(
-        "click",
-        () => {
-            switchPage("chat");
-        }
+profileTab?.addEventListener(
+    "click",
+    () => switchPage("profile")
+);
+
+settingsTab?.addEventListener(
+    "click",
+    () => switchPage("settings")
+);
+
+
+/* =====================================================
+   PROFILE NAME CODE UI
+   ===================================================== */
+
+let profileNameCodeInput =
+    null;
+
+
+function setupProfileNameCodeUI() {
+
+    if (
+        !profilePage ||
+        profileNameCodeInput
+    ) {
+        return;
+    }
+
+    /*
+       The username field stays editable,
+       but the server requires a one-time
+       code before an existing username
+       can actually be changed.
+    */
+
+    if (profileUsername) {
+
+        profileUsername.readOnly =
+            false;
+
+        profileUsername.style.cursor =
+            "text";
+    }
+
+    const wrapper =
+        document.createElement(
+            "div"
+        );
+
+    wrapper.style.marginTop =
+        "12px";
+
+    const label =
+        document.createElement(
+            "label"
+        );
+
+    label.textContent =
+        "Name-change code";
+
+    label.style.display =
+        "block";
+
+    label.style.marginBottom =
+        "6px";
+
+    label.style.fontWeight =
+        "600";
+
+    profileNameCodeInput =
+        document.createElement(
+            "input"
+        );
+
+    profileNameCodeInput.type =
+        "text";
+
+    profileNameCodeInput.placeholder =
+        "Enter the one-time code";
+
+    profileNameCodeInput.maxLength =
+        8;
+
+    profileNameCodeInput.autocomplete =
+        "off";
+
+    profileNameCodeInput.style.width =
+        "100%";
+
+    profileNameCodeInput.style.boxSizing =
+        "border-box";
+
+    wrapper.appendChild(label);
+
+    wrapper.appendChild(
+        profileNameCodeInput
     );
+
+    if (saveProfileButton) {
+
+        saveProfileButton.parentNode.insertBefore(
+            wrapper,
+            saveProfileButton
+        );
+
+    } else {
+
+        profilePage.appendChild(
+            wrapper
+        );
+    }
 }
 
 
-if (profileTab) {
-
-    profileTab.addEventListener(
-        "click",
-        () => {
-            switchPage("profile");
-        }
-    );
-}
+setupProfileNameCodeUI();
 
 
-if (settingsTab) {
-
-    settingsTab.addEventListener(
-        "click",
-        () => {
-            switchPage("settings");
-        }
-    );
-}
-
-
-/* =========================
+/* =====================================================
    PROFILE PAGE
-   ========================= */
+   ===================================================== */
 
 function updateProfilePage() {
+
+    setupProfileNameCodeUI();
 
     if (profileUsername) {
 
@@ -385,7 +488,14 @@ function updateProfilePage() {
     if (profileColor) {
 
         profileColor.value =
-            currentColor || "#4285F4";
+            currentColor ||
+            "#4285F4";
+    }
+
+    if (profileNameCodeInput) {
+
+        profileNameCodeInput.value =
+            "";
     }
 
     updateProfileColorText();
@@ -411,20 +521,21 @@ function updateProfileColorText() {
 }
 
 
-if (profileColor) {
+profileColor?.addEventListener(
+    "input",
+    updateProfileColorText
+);
 
-    profileColor.addEventListener(
-        "input",
-        updateProfileColorText
-    );
-}
 
+/* =====================================================
+   SAVE PROFILE
+   ===================================================== */
 
 if (saveProfileButton) {
 
     saveProfileButton.addEventListener(
         "click",
-        () => {
+        async () => {
 
             const username =
                 String(
@@ -436,13 +547,66 @@ if (saveProfileButton) {
                 profileColor?.value ||
                 "#4285F4";
 
+            const nameCode =
+                String(
+                    profileNameCodeInput?.value ||
+                    ""
+                ).trim();
 
-            if (!username) {
+            currentColor =
+                color;
+
+            if (colorInput) {
+
+                colorInput.value =
+                    currentColor;
+            }
+
+            /*
+               Only changing color.
+            */
+
+            if (
+                username ===
+                currentUsername
+            ) {
+
+                if (currentUserCode) {
+
+                    saveUser(
+                        currentUserCode,
+                        currentUsername,
+                        currentColor
+                    );
+                }
 
                 if (profileMessage) {
 
                     profileMessage.textContent =
-                        "Enter a username.";
+                        "Color saved.";
+
+                    profileMessage.style.color =
+                        "#4285F4";
+                }
+
+                showNotification(
+                    "Color updated."
+                );
+
+                return;
+            }
+
+            /*
+               Changing username requires
+               a one-time code.
+            */
+
+            if (!nameCode) {
+
+                if (profileMessage) {
+
+                    profileMessage.textContent =
+                        "A one-time name-change code is required.";
 
                     profileMessage.style.color =
                         "#d93025";
@@ -451,6 +615,19 @@ if (saveProfileButton) {
                 return;
             }
 
+            if (!username) {
+
+                if (profileMessage) {
+
+                    profileMessage.textContent =
+                        "Enter a new username.";
+
+                    profileMessage.style.color =
+                        "#d93025";
+                }
+
+                return;
+            }
 
             if (username.length > 30) {
 
@@ -466,57 +643,120 @@ if (saveProfileButton) {
                 return;
             }
 
+            try {
 
-            currentUsername =
-                username;
+                saveProfileButton.disabled =
+                    true;
 
-            currentColor =
-                color;
+                const token =
+                    await getAuthToken();
 
+                const response =
+                    await fetch(
+                        `${SERVER_URL}/change-username`,
+                        {
+                            method:
+                                "POST",
 
-            if (colorInput) {
+                            headers: {
+                                "Content-Type":
+                                    "application/json",
 
-                colorInput.value =
-                    currentColor;
-            }
+                                "Authorization":
+                                    `Bearer ${token}`
+                            },
 
+                            body:
+                                JSON.stringify({
+                                    username,
+                                    code:
+                                        nameCode
+                                })
+                        }
+                    );
 
-            if (currentUserCode) {
+                const result =
+                    await response.json();
 
-                saveUser(
-                    currentUserCode,
-                    currentUsername,
-                    currentColor
+                if (
+                    !response.ok ||
+                    !result.success
+                ) {
+
+                    throw new Error(
+                        result.message ||
+                        "Could not change username."
+                    );
+                }
+
+                currentUsername =
+                    result.username;
+
+                if (currentUserCode) {
+
+                    saveUser(
+                        currentUserCode,
+                        currentUsername,
+                        currentColor
+                    );
+                }
+
+                if (profileNameCodeInput) {
+
+                    profileNameCodeInput.value =
+                        "";
+                }
+
+                if (profileMessage) {
+
+                    profileMessage.textContent =
+                        "Username changed successfully.";
+
+                    profileMessage.style.color =
+                        "#4285F4";
+                }
+
+                showNotification(
+                    "Username changed."
                 );
+
+            } catch (error) {
+
+                console.error(
+                    "Username change error:",
+                    error
+                );
+
+                if (profileMessage) {
+
+                    profileMessage.textContent =
+                        error.message ||
+                        "Could not change username.";
+
+                    profileMessage.style.color =
+                        "#d93025";
+                }
+
+            } finally {
+
+                saveProfileButton.disabled =
+                    false;
             }
-
-
-            if (profileMessage) {
-
-                profileMessage.textContent =
-                    "Profile saved.";
-
-                profileMessage.style.color =
-                    "#4285F4";
-            }
-
-
-            showNotification(
-                "Profile updated."
-            );
         }
     );
 }
 
 
-/* =========================
+/* =====================================================
    NOTIFICATIONS
-   ========================= */
+   ===================================================== */
 
 function showNotification(message) {
 
     const notification =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
 
     notification.textContent =
         message;
@@ -551,21 +791,28 @@ function showNotification(message) {
     notification.style.zIndex =
         "99999";
 
+    notification.style.maxWidth =
+        "90%";
+
+    notification.style.textAlign =
+        "center";
+
     document.body.appendChild(
         notification
     );
 
-    setTimeout(() => {
-
-        notification.remove();
-
-    }, 3000);
+    setTimeout(
+        () => {
+            notification.remove();
+        },
+        3000
+    );
 }
 
 
-/* =========================
+/* =====================================================
    ADMIN CHECK
-   ========================= */
+   ===================================================== */
 
 async function checkAdminStatus() {
 
@@ -576,11 +823,11 @@ async function checkAdminStatus() {
 
         if (!user) {
 
-            isAdmin = false;
+            isAdmin =
+                false;
 
             return false;
         }
-
 
         const tokenResult =
             await getIdTokenResult(
@@ -588,10 +835,8 @@ async function checkAdminStatus() {
                 true
             );
 
-
         isAdmin =
             tokenResult.claims.admin === true;
-
 
         return isAdmin;
 
@@ -602,356 +847,51 @@ async function checkAdminStatus() {
             error
         );
 
-        isAdmin = false;
+        isAdmin =
+            false;
 
         return false;
     }
 }
 
 
-/* =========================
-   JOIN CHAT
-   ========================= */
+/* =====================================================
+   LOAD SERVER PROFILE
+   ===================================================== */
 
-if (joinButton) {
+async function loadServerProfile() {
 
-    joinButton.addEventListener(
-        "click",
-        async () => {
+    try {
 
-            const code =
-                String(
-                    codeInput?.value || ""
-                ).trim();
+        const token =
+            await getAuthToken();
 
+        const response =
+            await fetch(
+                `${SERVER_URL}/profile`,
+                {
+                    method:
+                        "GET",
 
-            if (!code) {
-
-                if (errorMessage) {
-
-                    errorMessage.textContent =
-                        "Enter a code.";
-                }
-
-                return;
-            }
-
-
-            joinButton.disabled = true;
-
-
-            if (errorMessage) {
-
-                errorMessage.textContent =
-                    "Checking code.";
-            }
-
-
-            try {
-
-                const response =
-                    await fetch(
-                        `${SERVER_URL}/verify-code`,
-                        {
-                            method: "POST",
-
-                            headers: {
-                                "Content-Type":
-                                    "application/json"
-                            },
-
-                            body: JSON.stringify({
-                                code
-                            })
-                        }
-                    );
-
-
-                if (!response.ok) {
-
-                    throw new Error(
-                        `Verification server returned ${response.status}`
-                    );
-                }
-
-
-                const result =
-                    await response.json();
-
-
-                if (!result.success) {
-
-                    if (errorMessage) {
-
-                        errorMessage.textContent =
-                            result.message ||
-                            "Invalid code.";
-                    }
-
-                    return;
-                }
-
-
-                await setPersistence(
-                    auth,
-                    browserLocalPersistence
-                );
-
-
-                localStorage.setItem(
-                    LOGIN_TIME_KEY,
-                    Date.now().toString()
-                );
-
-
-                localStorage.setItem(
-                    ACTIVE_CODE_KEY,
-                    code
-                );
-
-
-                await signInWithEmailAndPassword(
-                    auth,
-                    result.email,
-                    result.password
-                );
-
-
-                await checkAdminStatus();
-
-
-                currentUserCode =
-                    code;
-
-
-                const savedUser =
-                    getSavedUser(code);
-
-
-                if (savedUser) {
-
-                    currentUsername =
-                        savedUser.username;
-
-                    currentColor =
-                        savedUser.color ||
-                        "#4285F4";
-
-
-                    if (colorInput) {
-
-                        colorInput.value =
-                            currentColor;
-                    }
-
-
-                    showScreen("chat");
-
-                    switchPage("chat");
-
-                    loadMessages();
-
-                } else {
-
-                    showScreen("username");
-
-
-                    if (usernameInput) {
-
-                        usernameInput.value =
-                            "";
-
-                        usernameInput.focus();
+                    headers: {
+                        "Authorization":
+                            `Bearer ${token}`
                     }
                 }
-
-            } catch (error) {
-
-                localStorage.removeItem(
-                    LOGIN_TIME_KEY
-                );
-
-                localStorage.removeItem(
-                    ACTIVE_CODE_KEY
-                );
-
-
-                console.error(
-                    "Code verification error:",
-                    error
-                );
-
-
-                if (errorMessage) {
-
-                    if (
-                        error.code ===
-                        "auth/invalid-credential"
-                    ) {
-
-                        errorMessage.textContent =
-                            "The code was accepted, but Firebase login failed.";
-
-                    } else if (
-                        error.code ===
-                        "auth/api-key-not-valid"
-                    ) {
-
-                        errorMessage.textContent =
-                            "Firebase API key is invalid.";
-
-                    } else if (
-                        error.message &&
-                        error.message.includes(
-                            "Failed to fetch"
-                        )
-                    ) {
-
-                        errorMessage.textContent =
-                            "Cannot connect to verification server. Make sure the backend is running.";
-
-                    } else {
-
-                        errorMessage.textContent =
-                            error.message ||
-                            "Could not connect to verification server.";
-                    }
-                }
-
-            } finally {
-
-                joinButton.disabled =
-                    false;
-            }
-        }
-    );
-}
-
-
-/* =========================
-   ENTER CODE WITH ENTER
-   ========================= */
-
-if (codeInput) {
-
-    codeInput.addEventListener(
-        "keydown",
-        event => {
-
-            if (event.key === "Enter") {
-
-                joinButton?.click();
-            }
-        }
-    );
-}
-
-
-/* =========================
-   USERNAME
-   ========================= */
-
-if (usernameButton) {
-
-    usernameButton.addEventListener(
-        "click",
-        async () => {
-
-            const username =
-                String(
-                    usernameInput?.value ||
-                    ""
-                ).trim();
-
-
-            if (!username) {
-
-                if (usernameError) {
-
-                    usernameError.textContent =
-                        "Enter a username.";
-                }
-
-                return;
-            }
-
-
-            if (username.length > 30) {
-
-                if (usernameError) {
-
-                    usernameError.textContent =
-                        "Username must be 30 characters or less.";
-                }
-
-                return;
-            }
-
-
-            currentUsername =
-                username;
-
-
-            currentColor =
-                colorInput?.value ||
-                "#4285F4";
-
-
-            saveUser(
-                currentUserCode,
-                currentUsername,
-                currentColor
             );
 
+        const result =
+            await response.json();
 
-            showScreen("chat");
+        if (
+            result.success &&
+            result.username
+        ) {
 
-            switchPage("chat");
+            currentUsername =
+                result.username;
 
-            loadMessages();
-        }
-    );
-}
-
-
-/* =========================
-   ENTER USERNAME WITH ENTER
-   ========================= */
-
-if (usernameInput) {
-
-    usernameInput.addEventListener(
-        "keydown",
-        event => {
-
-            if (event.key === "Enter") {
-
-                usernameButton?.click();
-            }
-        }
-    );
-}
-
-
-/* =========================
-   COLOR
-   ========================= */
-
-if (colorInput) {
-
-    colorInput.addEventListener(
-        "input",
-        () => {
-
-            currentColor =
-                colorInput.value ||
-                "#4285F4";
-
-
-            if (
-                currentUserCode &&
-                currentUsername
-            ) {
+            if (currentUserCode) {
 
                 saveUser(
                     currentUserCode,
@@ -959,20 +899,458 @@ if (colorInput) {
                     currentColor
                 );
             }
+
+            return true;
         }
-    );
+
+        return false;
+
+    } catch (error) {
+
+        console.error(
+            "Load profile error:",
+            error
+        );
+
+        return false;
+    }
 }
 
 
-/* =========================
+/* =====================================================
+   SET INITIAL USERNAME
+   ===================================================== */
+
+async function setInitialUsername(
+    username
+) {
+
+    const token =
+        await getAuthToken();
+
+    const response =
+        await fetch(
+            `${SERVER_URL}/set-username`,
+            {
+                method:
+                    "POST",
+
+                headers: {
+                    "Content-Type":
+                        "application/json",
+
+                    "Authorization":
+                        `Bearer ${token}`
+                },
+
+                body:
+                    JSON.stringify({
+                        username
+                    })
+            }
+        );
+
+    const result =
+        await response.json();
+
+    if (
+        !response.ok ||
+        !result.success
+    ) {
+
+        throw new Error(
+            result.message ||
+            "Could not save username."
+        );
+    }
+
+    return result.username;
+}
+
+
+/* =====================================================
+   JOIN CHAT
+   ===================================================== */
+
+joinButton?.addEventListener(
+    "click",
+    async () => {
+
+        const code =
+            String(
+                codeInput?.value ||
+                ""
+            ).trim();
+
+        if (!code) {
+
+            if (errorMessage) {
+
+                errorMessage.textContent =
+                    "Enter a code.";
+            }
+
+            return;
+        }
+
+        joinButton.disabled =
+            true;
+
+        if (errorMessage) {
+
+            errorMessage.textContent =
+                "Checking code.";
+        }
+
+        try {
+
+            const response =
+                await fetch(
+                    `${SERVER_URL}/verify-code`,
+                    {
+                        method:
+                            "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json"
+                        },
+
+                        body:
+                            JSON.stringify({
+                                code
+                            })
+                    }
+                );
+
+            if (!response.ok) {
+
+                throw new Error(
+                    `Verification server returned ${response.status}`
+                );
+            }
+
+            const result =
+                await response.json();
+
+            if (!result.success) {
+
+                if (errorMessage) {
+
+                    errorMessage.textContent =
+                        result.message ||
+                        "Invalid code.";
+                }
+
+                return;
+            }
+
+            await setPersistence(
+                auth,
+                browserLocalPersistence
+            );
+
+            localStorage.setItem(
+                LOGIN_TIME_KEY,
+                Date.now().toString()
+            );
+
+            localStorage.setItem(
+                ACTIVE_CODE_KEY,
+                code
+            );
+
+            await signInWithEmailAndPassword(
+                auth,
+                result.email,
+                result.password
+            );
+
+            await checkAdminStatus();
+
+            currentUserCode =
+                code;
+
+            const hasServerProfile =
+                await loadServerProfile();
+
+            if (hasServerProfile) {
+
+                const savedUser =
+                    getSavedUser(code);
+
+                if (savedUser) {
+
+                    currentColor =
+                        savedUser.color ||
+                        "#4285F4";
+
+                } else {
+
+                    currentColor =
+                        "#4285F4";
+                }
+
+                if (colorInput) {
+
+                    colorInput.value =
+                        currentColor;
+                }
+
+                showScreen("chat");
+
+                switchPage("chat");
+
+                loadMessages();
+
+                loadWhispers();
+
+            } else {
+
+                showScreen(
+                    "username"
+                );
+
+                if (usernameInput) {
+
+                    usernameInput.value =
+                        "";
+
+                    usernameInput.focus();
+                }
+            }
+
+        } catch (error) {
+
+            localStorage.removeItem(
+                LOGIN_TIME_KEY
+            );
+
+            localStorage.removeItem(
+                ACTIVE_CODE_KEY
+            );
+
+            console.error(
+                "Code verification error:",
+                error
+            );
+
+            if (errorMessage) {
+
+                if (
+                    error.code ===
+                    "auth/invalid-credential"
+                ) {
+
+                    errorMessage.textContent =
+                        "The code was accepted, but Firebase login failed.";
+
+                } else if (
+                    error.code ===
+                    "auth/api-key-not-valid"
+                ) {
+
+                    errorMessage.textContent =
+                        "Firebase API key is invalid.";
+
+                } else if (
+                    error.message &&
+                    error.message.includes(
+                        "Failed to fetch"
+                    )
+                ) {
+
+                    errorMessage.textContent =
+                        "Cannot connect to verification server.";
+
+                } else {
+
+                    errorMessage.textContent =
+                        error.message ||
+                        "Could not connect to verification server.";
+                }
+            }
+
+        } finally {
+
+            joinButton.disabled =
+                false;
+        }
+    }
+);
+
+
+/* =====================================================
+   ENTER ACCESS CODE
+   ===================================================== */
+
+codeInput?.addEventListener(
+    "keydown",
+    event => {
+
+        if (
+            event.key ===
+            "Enter"
+        ) {
+
+            joinButton?.click();
+        }
+    }
+);
+
+
+/* =====================================================
+   INITIAL USERNAME
+   ===================================================== */
+
+usernameButton?.addEventListener(
+    "click",
+    async () => {
+
+        const username =
+            String(
+                usernameInput?.value ||
+                ""
+            ).trim();
+
+        if (!username) {
+
+            if (usernameError) {
+
+                usernameError.textContent =
+                    "Enter a username.";
+            }
+
+            return;
+        }
+
+        if (username.length > 30) {
+
+            if (usernameError) {
+
+                usernameError.textContent =
+                    "Username must be 30 characters or less.";
+            }
+
+            return;
+        }
+
+        usernameButton.disabled =
+            true;
+
+        if (usernameError) {
+
+            usernameError.textContent =
+                "";
+        }
+
+        try {
+
+            const savedUsername =
+                await setInitialUsername(
+                    username
+                );
+
+            currentUsername =
+                savedUsername;
+
+            currentColor =
+                colorInput?.value ||
+                "#4285F4";
+
+            saveUser(
+                currentUserCode,
+                currentUsername,
+                currentColor
+            );
+
+            showScreen("chat");
+
+            switchPage("chat");
+
+            loadMessages();
+
+            loadWhispers();
+
+        } catch (error) {
+
+            console.error(
+                "Initial username error:",
+                error
+            );
+
+            if (usernameError) {
+
+                usernameError.textContent =
+                    error.message ||
+                    "Could not save username.";
+            }
+
+        } finally {
+
+            usernameButton.disabled =
+                false;
+        }
+    }
+);
+
+
+/* =====================================================
+   ENTER USERNAME
+   ===================================================== */
+
+usernameInput?.addEventListener(
+    "keydown",
+    event => {
+
+        if (
+            event.key ===
+            "Enter"
+        ) {
+
+            usernameButton?.click();
+        }
+    }
+);
+
+
+/* =====================================================
+   COLOR
+   ===================================================== */
+
+colorInput?.addEventListener(
+    "input",
+    () => {
+
+        currentColor =
+            colorInput.value ||
+            "#4285F4";
+
+        if (
+            currentUserCode &&
+            currentUsername
+        ) {
+
+            saveUser(
+                currentUserCode,
+                currentUsername,
+                currentColor
+            );
+        }
+
+        updateProfileColorText();
+    }
+);
+
+
+/* =====================================================
    AUTH TOKEN
-   ========================= */
+   ===================================================== */
 
 async function getAuthToken() {
 
     const user =
         auth.currentUser;
-
 
     if (!user) {
 
@@ -981,14 +1359,15 @@ async function getAuthToken() {
         );
     }
 
-
-    return await user.getIdToken(true);
+    return await user.getIdToken(
+        true
+    );
 }
 
 
-/* =========================
-   RANDOM CODE
-   ========================= */
+/* =====================================================
+   RANDOM ACCESS CODE
+   ===================================================== */
 
 async function generateRandomCode() {
 
@@ -1001,18 +1380,17 @@ async function generateRandomCode() {
         return;
     }
 
-
     try {
 
         const token =
             await getAuthToken();
 
-
         const response =
             await fetch(
                 `${SERVER_URL}/random-code`,
                 {
-                    method: "POST",
+                    method:
+                        "POST",
 
                     headers: {
                         "Content-Type":
@@ -1024,10 +1402,8 @@ async function generateRandomCode() {
                 }
             );
 
-
         const result =
             await response.json();
-
 
         if (!result.success) {
 
@@ -1037,11 +1413,9 @@ async function generateRandomCode() {
             );
         }
 
-
         showNotification(
             `New code: ${result.code}`
         );
-
 
         console.log(
             "Generated code:",
@@ -1055,7 +1429,6 @@ async function generateRandomCode() {
             error
         );
 
-
         showNotification(
             error.message ||
             "Could not generate code."
@@ -1064,11 +1437,106 @@ async function generateRandomCode() {
 }
 
 
-/* =========================
-   MUTE USER
-   ========================= */
+/* =====================================================
+   RANDOM NAME-CHANGE CODE
+   ===================================================== */
 
-async function muteChat(username) {
+async function generateRandomNameCode() {
+
+    if (!isAdmin) {
+
+        showNotification(
+            "You do not have permission to use this command."
+        );
+
+        return;
+    }
+
+    try {
+
+        const token =
+            await getAuthToken();
+
+        const response =
+            await fetch(
+                `${SERVER_URL}/random-name-code`,
+                {
+                    method:
+                        "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json",
+
+                        "Authorization":
+                            `Bearer ${token}`
+                    }
+                }
+            );
+
+        const result =
+            await response.json();
+
+        if (!result.success) {
+
+            throw new Error(
+                result.message ||
+                "Could not generate name-change code."
+            );
+        }
+
+        showNotification(
+            `Name-change code: ${result.code} (expires in 15 minutes)`
+        );
+
+        console.log(
+            "Generated name-change code:",
+            result.code
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Random name code error:",
+            error
+        );
+
+        showNotification(
+            error.message ||
+            "Could not generate name-change code."
+        );
+    }
+}
+
+
+/* =====================================================
+   COMMANDS
+   ===================================================== */
+
+function showCommands() {
+
+    if (isAdmin) {
+
+        showNotification(
+            "Commands: /commands, /random_code, /random_name_code, /whisper <username> <message>, /mute <username>, /unmute <username>, /clear"
+        );
+
+    } else {
+
+        showNotification(
+            "Commands: /commands, /whisper <username> <message>"
+        );
+    }
+}
+
+
+/* =====================================================
+   MUTE
+   ===================================================== */
+
+async function muteChat(
+    username
+) {
 
     if (!isAdmin) {
 
@@ -1079,7 +1547,6 @@ async function muteChat(username) {
         return;
     }
 
-
     if (!username) {
 
         showNotification(
@@ -1089,18 +1556,17 @@ async function muteChat(username) {
         return;
     }
 
-
     try {
 
         const token =
             await getAuthToken();
 
-
         const response =
             await fetch(
                 `${SERVER_URL}/mute`,
                 {
-                    method: "POST",
+                    method:
+                        "POST",
 
                     headers: {
                         "Authorization":
@@ -1110,28 +1576,26 @@ async function muteChat(username) {
                             "application/json"
                     },
 
-                    body: JSON.stringify({
-                        username
-                    })
+                    body:
+                        JSON.stringify({
+                            username
+                        })
                 }
             );
 
-
         const result =
             await response.json();
-
 
         if (!result.success) {
 
             throw new Error(
                 result.message ||
-                "Could not mute user."
+                "Could not mute chat."
             );
         }
 
-
         showNotification(
-            `${result.username} has been muted.`
+            "Chat muted."
         );
 
     } catch (error) {
@@ -1141,20 +1605,21 @@ async function muteChat(username) {
             error
         );
 
-
         showNotification(
             error.message ||
-            "Could not mute user."
+            "Could not mute chat."
         );
     }
 }
 
 
-/* =========================
-   UNMUTE USER
-   ========================= */
+/* =====================================================
+   UNMUTE
+   ===================================================== */
 
-async function unmuteChat(username) {
+async function unmuteChat(
+    username
+) {
 
     if (!isAdmin) {
 
@@ -1165,7 +1630,6 @@ async function unmuteChat(username) {
         return;
     }
 
-
     if (!username) {
 
         showNotification(
@@ -1175,18 +1639,17 @@ async function unmuteChat(username) {
         return;
     }
 
-
     try {
 
         const token =
             await getAuthToken();
 
-
         const response =
             await fetch(
                 `${SERVER_URL}/unmute`,
                 {
-                    method: "POST",
+                    method:
+                        "POST",
 
                     headers: {
                         "Authorization":
@@ -1196,28 +1659,26 @@ async function unmuteChat(username) {
                             "application/json"
                     },
 
-                    body: JSON.stringify({
-                        username
-                    })
+                    body:
+                        JSON.stringify({
+                            username
+                        })
                 }
             );
 
-
         const result =
             await response.json();
-
 
         if (!result.success) {
 
             throw new Error(
                 result.message ||
-                "Could not unmute user."
+                "Could not unmute chat."
             );
         }
 
-
         showNotification(
-            `${result.username} has been unmuted.`
+            "Chat unmuted."
         );
 
     } catch (error) {
@@ -1227,18 +1688,17 @@ async function unmuteChat(username) {
             error
         );
 
-
         showNotification(
             error.message ||
-            "Could not unmute user."
+            "Could not unmute chat."
         );
     }
 }
 
 
-/* =========================
+/* =====================================================
    CLEAR CHAT
-   ========================= */
+   ===================================================== */
 
 async function clearChat() {
 
@@ -1251,18 +1711,17 @@ async function clearChat() {
         return;
     }
 
-
     try {
 
         const token =
             await getAuthToken();
 
-
         const response =
             await fetch(
                 `${SERVER_URL}/clear`,
                 {
-                    method: "POST",
+                    method:
+                        "POST",
 
                     headers: {
                         "Authorization":
@@ -1274,10 +1733,8 @@ async function clearChat() {
                 }
             );
 
-
         const result =
             await response.json();
-
 
         if (!result.success) {
 
@@ -1286,7 +1743,6 @@ async function clearChat() {
                 "Could not clear chat."
             );
         }
-
 
         showNotification(
             `Chat cleared (${result.deleted || 0} messages).`
@@ -1299,7 +1755,6 @@ async function clearChat() {
             error
         );
 
-
         showNotification(
             error.message ||
             "Could not clear chat."
@@ -1308,154 +1763,14 @@ async function clearChat() {
 }
 
 
-/* =========================
-   SEND MESSAGE
-   ========================= */
+/* =====================================================
+   SEND WHISPER
+   ===================================================== */
 
-async function sendMessage() {
-
-    const text =
-        String(
-            messageInput?.value ||
-            ""
-        ).trim();
-
-
-    if (!text) {
-        return;
-    }
-
-
-    if (!canSendMessage) {
-
-        showNotification(
-            "Stop spamming"
-        );
-
-        return;
-    }
-
-
-    canSendMessage =
-        false;
-
-
-    setTimeout(() => {
-
-        canSendMessage =
-            true;
-
-    }, 1000);
-
-
-    /* /random_code */
-
-    if (text === "/random_code") {
-
-        if (messageInput) {
-            messageInput.value = "";
-        }
-
-        await generateRandomCode();
-
-        return;
-    }
-
-
-    /* /mute <username> */
-
-    if (
-        text.startsWith("/mute ") &&
-        text.length > 6
-    ) {
-
-        const username =
-            text.substring(6).trim();
-
-
-        if (messageInput) {
-            messageInput.value = "";
-        }
-
-
-        await muteChat(username);
-
-        return;
-    }
-
-
-    /* /unmute <username> */
-
-    if (
-        text.startsWith("/unmute ") &&
-        text.length > 8
-    ) {
-
-        const username =
-            text.substring(8).trim();
-
-
-        if (messageInput) {
-            messageInput.value = "";
-        }
-
-
-        await unmuteChat(username);
-
-        return;
-    }
-
-
-    /* /mute without username */
-
-    if (text === "/mute") {
-
-        if (messageInput) {
-            messageInput.value = "";
-        }
-
-
-        showNotification(
-            "Usage: /mute <username>"
-        );
-
-        return;
-    }
-
-
-    /* /unmute without username */
-
-    if (text === "/unmute") {
-
-        if (messageInput) {
-            messageInput.value = "";
-        }
-
-
-        showNotification(
-            "Usage: /unmute <username>"
-        );
-
-        return;
-    }
-
-
-    /* /clear */
-
-    if (text === "/clear") {
-
-        if (messageInput) {
-            messageInput.value = "";
-        }
-
-
-        await clearChat();
-
-        return;
-    }
-
-
-    /* Normal message */
+async function sendWhisper(
+    targetUsername,
+    text
+) {
 
     if (!currentUsername) {
 
@@ -1466,22 +1781,35 @@ async function sendMessage() {
         return;
     }
 
+    if (!targetUsername) {
+
+        showNotification(
+            "Usage: /whisper <username> <message>"
+        );
+
+        return;
+    }
+
+    if (!text) {
+
+        showNotification(
+            "Usage: /whisper <username> <message>"
+        );
+
+        return;
+    }
 
     try {
-
-        sendButton.disabled =
-            true;
-
 
         const token =
             await getAuthToken();
 
-
         const response =
             await fetch(
-                `${SERVER_URL}/send-message`,
+                `${SERVER_URL}/send-whisper`,
                 {
-                    method: "POST",
+                    method:
+                        "POST",
 
                     headers: {
                         "Content-Type":
@@ -1491,22 +1819,374 @@ async function sendMessage() {
                             `Bearer ${token}`
                     },
 
-                    body: JSON.stringify({
-                        username:
-                            currentUsername,
+                    body:
+                        JSON.stringify({
+                            username:
+                                targetUsername,
 
-                        text,
+                            text,
 
-                        color:
-                            currentColor
-                    })
+                            color:
+                                currentColor
+                        })
                 }
             );
-
 
         const result =
             await response.json();
 
+        if (!result.success) {
+
+            throw new Error(
+                result.message ||
+                "Could not send whisper."
+            );
+        }
+
+        showNotification(
+            `Whisper sent to ${targetUsername}.`
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Whisper error:",
+            error
+        );
+
+        showNotification(
+            error.message ||
+            "Could not send whisper."
+        );
+    }
+}
+
+
+/* =====================================================
+   SEND MESSAGE
+   ===================================================== */
+
+async function sendMessage() {
+
+    const text =
+        String(
+            messageInput?.value ||
+            ""
+        ).trim();
+
+    if (!text) {
+        return;
+    }
+
+    if (!canSendMessage) {
+
+        showNotification(
+            "Stop spamming."
+        );
+
+        return;
+    }
+
+    canSendMessage =
+        false;
+
+    setTimeout(
+        () => {
+            canSendMessage =
+                true;
+        },
+        1000
+    );
+
+
+    /* ---------------------------------------------
+       /commands
+       --------------------------------------------- */
+
+    if (
+        text ===
+        "/commands"
+    ) {
+
+        messageInput.value =
+            "";
+
+        showCommands();
+
+        return;
+    }
+
+
+    /* ---------------------------------------------
+       /random_code
+       --------------------------------------------- */
+
+    if (
+        text ===
+        "/random_code"
+    ) {
+
+        messageInput.value =
+            "";
+
+        await generateRandomCode();
+
+        return;
+    }
+
+
+    /* ---------------------------------------------
+       /random_name_code
+       --------------------------------------------- */
+
+    if (
+        text ===
+        "/random_name_code"
+    ) {
+
+        messageInput.value =
+            "";
+
+        await generateRandomNameCode();
+
+        return;
+    }
+
+
+    /* ---------------------------------------------
+       /whisper
+       --------------------------------------------- */
+
+    if (
+        text.startsWith(
+            "/whisper "
+        )
+    ) {
+
+        const whisperContent =
+            text
+                .substring(9)
+                .trim();
+
+        const firstSpace =
+            whisperContent.indexOf(
+                " "
+            );
+
+        if (firstSpace === -1) {
+
+            messageInput.value =
+                "";
+
+            showNotification(
+                "Usage: /whisper <username> <message>"
+            );
+
+            return;
+        }
+
+        let targetUsername =
+            whisperContent
+                .substring(
+                    0,
+                    firstSpace
+                )
+                .trim();
+
+        const whisperText =
+            whisperContent
+                .substring(
+                    firstSpace + 1
+                )
+                .trim();
+
+        /*
+           Convert underscores into
+           spaces.
+
+           John_Smith
+           becomes
+           John Smith
+        */
+
+        targetUsername =
+            targetUsername.replace(
+                /_/g,
+                " "
+            );
+
+        messageInput.value =
+            "";
+
+        await sendWhisper(
+            targetUsername,
+            whisperText
+        );
+
+        return;
+    }
+
+
+    /* ---------------------------------------------
+       /mute <username>
+       --------------------------------------------- */
+
+    if (
+        text.startsWith(
+            "/mute "
+        ) &&
+        text.length > 6
+    ) {
+
+        const username =
+            text
+                .substring(6)
+                .trim();
+
+        messageInput.value =
+            "";
+
+        await muteChat(
+            username
+        );
+
+        return;
+    }
+
+
+    /* ---------------------------------------------
+       /unmute <username>
+       --------------------------------------------- */
+
+    if (
+        text.startsWith(
+            "/unmute "
+        ) &&
+        text.length > 8
+    ) {
+
+        const username =
+            text
+                .substring(8)
+                .trim();
+
+        messageInput.value =
+            "";
+
+        await unmuteChat(
+            username
+        );
+
+        return;
+    }
+
+
+    /* ---------------------------------------------
+       /mute
+       --------------------------------------------- */
+
+    if (
+        text ===
+        "/mute"
+    ) {
+
+        messageInput.value =
+            "";
+
+        showNotification(
+            "Usage: /mute <username>"
+        );
+
+        return;
+    }
+
+
+    /* ---------------------------------------------
+       /unmute
+       --------------------------------------------- */
+
+    if (
+        text ===
+        "/unmute"
+    ) {
+
+        messageInput.value =
+            "";
+
+        showNotification(
+            "Usage: /unmute <username>"
+        );
+
+        return;
+    }
+
+
+    /* ---------------------------------------------
+       /clear
+       --------------------------------------------- */
+
+    if (
+        text ===
+        "/clear"
+    ) {
+
+        messageInput.value =
+            "";
+
+        await clearChat();
+
+        return;
+    }
+
+
+    /* ---------------------------------------------
+       NORMAL MESSAGE
+       --------------------------------------------- */
+
+    if (!currentUsername) {
+
+        showNotification(
+            "Set your username first."
+        );
+
+        return;
+    }
+
+    try {
+
+        sendButton.disabled =
+            true;
+
+        const token =
+            await getAuthToken();
+
+        const response =
+            await fetch(
+                `${SERVER_URL}/send-message`,
+                {
+                    method:
+                        "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json",
+
+                        "Authorization":
+                            `Bearer ${token}`
+                    },
+
+                    body:
+                        JSON.stringify({
+                            text,
+
+                            color:
+                                currentColor
+                        })
+                }
+            );
+
+        const result =
+            await response.json();
 
         if (!result.success) {
 
@@ -1527,10 +2207,8 @@ async function sendMessage() {
             return;
         }
 
-
-        if (messageInput) {
-            messageInput.value = "";
-        }
+        messageInput.value =
+            "";
 
     } catch (error) {
 
@@ -1538,7 +2216,6 @@ async function sendMessage() {
             "Send message error:",
             error
         );
-
 
         showNotification(
             error.message ||
@@ -1553,46 +2230,40 @@ async function sendMessage() {
 }
 
 
-/* =========================
+/* =====================================================
    SEND BUTTON
-   ========================= */
+   ===================================================== */
 
-if (sendButton) {
-
-    sendButton.addEventListener(
-        "click",
-        sendMessage
-    );
-}
+sendButton?.addEventListener(
+    "click",
+    sendMessage
+);
 
 
-/* =========================
+/* =====================================================
    ENTER TO SEND
-   ========================= */
+   ===================================================== */
 
-if (messageInput) {
+messageInput?.addEventListener(
+    "keydown",
+    event => {
 
-    messageInput.addEventListener(
-        "keydown",
-        event => {
+        if (
+            event.key === "Enter" &&
+            !event.shiftKey
+        ) {
 
-            if (
-                event.key === "Enter" &&
-                !event.shiftKey
-            ) {
+            event.preventDefault();
 
-                event.preventDefault();
-
-                sendMessage();
-            }
+            sendMessage();
         }
-    );
-}
+    }
+);
 
 
-/* =========================
-   LIVE MESSAGES
-   ========================= */
+/* =====================================================
+   LIVE PUBLIC MESSAGES
+   ===================================================== */
 
 function loadMessages() {
 
@@ -1600,16 +2271,13 @@ function loadMessages() {
         return;
     }
 
-
-    /* Stop old listener */
-
     if (stopMessageListener) {
 
         stopMessageListener();
 
-        stopMessageListener = null;
+        stopMessageListener =
+            null;
     }
-
 
     const messagesQuery =
         query(
@@ -1624,17 +2292,11 @@ function loadMessages() {
             )
         );
 
-
     stopMessageListener =
         onSnapshot(
             messagesQuery,
 
             snapshot => {
-
-                /*
-                 * Check if the user is already
-                 * near the bottom.
-                 */
 
                 const wasNearBottom =
                     messagesContainer.scrollHeight -
@@ -1642,22 +2304,22 @@ function loadMessages() {
                     messagesContainer.clientHeight <
                     100;
 
-
-                /*
-                 * Save current scroll position.
-                 */
-
                 const oldScrollTop =
                     messagesContainer.scrollTop;
 
-
                 /*
-                 * Rebuild messages.
-                 */
+                   Keep whisper messages
+                   separate from public messages.
+                */
 
-                messagesContainer.innerHTML =
-                    "";
-
+                messagesContainer
+                    .querySelectorAll(
+                        ".publicMessage"
+                    )
+                    .forEach(
+                        element =>
+                            element.remove()
+                    );
 
                 snapshot.forEach(
                     doc => {
@@ -1665,64 +2327,48 @@ function loadMessages() {
                         const data =
                             doc.data();
 
-
                         const messageElement =
                             document.createElement(
                                 "div"
                             );
 
-
                         messageElement.className =
-                            "message";
-
+                            "message publicMessage";
 
                         const usernameElement =
                             document.createElement(
                                 "strong"
                             );
 
-
                         usernameElement.textContent =
                             data.username ||
                             "Unknown";
 
-
                         usernameElement.style.color =
                             data.color ||
                             "#4285F4";
-
 
                         const textElement =
                             document.createElement(
                                 "span"
                             );
 
-
                         textElement.textContent =
                             `: ${data.text || ""}`;
-
 
                         messageElement.appendChild(
                             usernameElement
                         );
 
-
                         messageElement.appendChild(
                             textElement
                         );
-
 
                         messagesContainer.appendChild(
                             messageElement
                         );
                     }
                 );
-
-
-                /*
-                 * Keep the user at the bottom
-                 * when appropriate.
-                 */
 
                 if (wasNearBottom) {
 
@@ -1743,7 +2389,6 @@ function loadMessages() {
                     error
                 );
 
-
                 showNotification(
                     "Could not update messages."
                 );
@@ -1752,94 +2397,361 @@ function loadMessages() {
 }
 
 
-/* =========================
-   LOGOUT
-   ========================= */
+/* =====================================================
+   STOP WHISPER LISTENERS
+   ===================================================== */
 
-if (logoutButton) {
+function stopWhisperListeners() {
 
-    logoutButton.addEventListener(
-        "click",
-        async () => {
+    whisperListeners.forEach(
+        unsubscribe => {
 
             try {
-
-                if (stopMessageListener) {
-
-                    stopMessageListener();
-
-                    stopMessageListener =
-                        null;
-                }
-
-
-                localStorage.removeItem(
-                    LOGIN_TIME_KEY
-                );
-
-
-                localStorage.removeItem(
-                    ACTIVE_CODE_KEY
-                );
-
-
-                await signOut(auth);
-
-
-                currentUserCode =
-                    null;
-
-                currentUsername =
-                    null;
-
-                currentColor =
-                    "#4285F4";
-
-                isAdmin =
-                    false;
-
-
-                showScreen("login");
-
-
-                if (codeInput) {
-                    codeInput.value = "";
-                }
-
-
-                if (errorMessage) {
-                    errorMessage.textContent = "";
-                }
-
-
-                showNotification(
-                    "You have been logged out."
-                );
-
-            } catch (error) {
-
-                console.error(
-                    "Logout error:",
-                    error
-                );
-
-
-                showNotification(
-                    "Could not log out."
-                );
+                unsubscribe();
+            } catch {
+                // Ignore unsubscribe errors
             }
         }
+    );
+
+    whisperListeners = [];
+}
+
+
+/* =====================================================
+   LIVE WHISPERS
+   ===================================================== */
+
+function loadWhispers() {
+
+    const user =
+        auth.currentUser;
+
+    if (
+        !user ||
+        !messagesContainer
+    ) {
+        return;
+    }
+
+    stopWhisperListeners();
+
+    const whispers =
+        new Map();
+
+
+    function renderWhispers() {
+
+        document
+            .querySelectorAll(
+                ".whisperMessage"
+            )
+            .forEach(
+                element =>
+                    element.remove()
+            );
+
+        const sortedWhispers =
+            Array.from(
+                whispers.values()
+            ).sort(
+                (a, b) =>
+                    (a.timestamp || 0) -
+                    (b.timestamp || 0)
+            );
+
+        sortedWhispers.forEach(
+            whisper => {
+
+                const element =
+                    document.createElement(
+                        "div"
+                    );
+
+                element.className =
+                    "message whisperMessage";
+
+                const label =
+                    document.createElement(
+                        "strong"
+                    );
+
+                if (
+                    whisper.senderUid ===
+                    user.uid
+                ) {
+
+                    label.textContent =
+                        `Whisper to ${whisper.recipientUsername}: `;
+
+                } else {
+
+                    label.textContent =
+                        `Whisper from ${whisper.senderUsername}: `;
+                }
+
+                label.style.color =
+                    whisper.color ||
+                    "#4285F4";
+
+                const text =
+                    document.createElement(
+                        "span"
+                    );
+
+                text.textContent =
+                    whisper.text ||
+                    "";
+
+                element.appendChild(
+                    label
+                );
+
+                element.appendChild(
+                    text
+                );
+
+                messagesContainer.appendChild(
+                    element
+                );
+            }
+        );
+    }
+
+
+    /*
+       Whispers sent by you.
+    */
+
+    const sentQuery =
+        query(
+            collection(
+                db,
+                "whispers"
+            ),
+
+            where(
+                "senderUid",
+                "==",
+                user.uid
+            ),
+
+            orderBy(
+                "timestamp",
+                "asc"
+            )
+        );
+
+
+    /*
+       Whispers received by you.
+    */
+
+    const receivedQuery =
+        query(
+            collection(
+                db,
+                "whispers"
+            ),
+
+            where(
+                "recipientUid",
+                "==",
+                user.uid
+            ),
+
+            orderBy(
+                "timestamp",
+                "asc"
+            )
+        );
+
+
+    const unsubscribeSent =
+        onSnapshot(
+            sentQuery,
+
+            snapshot => {
+
+                snapshot.docChanges()
+                    .forEach(
+                        change => {
+
+                            if (
+                                change.type ===
+                                "removed"
+                            ) {
+
+                                whispers.delete(
+                                    change.doc.id
+                                );
+
+                            } else {
+
+                                whispers.set(
+                                    change.doc.id,
+                                    {
+                                        id:
+                                            change.doc.id,
+
+                                        ...change.doc.data()
+                                    }
+                                );
+                            }
+                        }
+                    );
+
+                renderWhispers();
+            },
+
+            error => {
+
+                console.error(
+                    "Sent whispers error:",
+                    error
+                );
+            }
+        );
+
+
+    const unsubscribeReceived =
+        onSnapshot(
+            receivedQuery,
+
+            snapshot => {
+
+                snapshot.docChanges()
+                    .forEach(
+                        change => {
+
+                            if (
+                                change.type ===
+                                "removed"
+                            ) {
+
+                                whispers.delete(
+                                    change.doc.id
+                                );
+
+                            } else {
+
+                                whispers.set(
+                                    change.doc.id,
+                                    {
+                                        id:
+                                            change.doc.id,
+
+                                        ...change.doc.data()
+                                    }
+                                );
+                            }
+                        }
+                    );
+
+                renderWhispers();
+            },
+
+            error => {
+
+                console.error(
+                    "Received whispers error:",
+                    error
+                );
+            }
+        );
+
+
+    whisperListeners.push(
+        unsubscribeSent
+    );
+
+    whisperListeners.push(
+        unsubscribeReceived
     );
 }
 
 
-/* =========================
+/* =====================================================
+   LOGOUT
+   ===================================================== */
+
+logoutButton?.addEventListener(
+    "click",
+    async () => {
+
+        try {
+
+            if (stopMessageListener) {
+
+                stopMessageListener();
+
+                stopMessageListener =
+                    null;
+            }
+
+            stopWhisperListeners();
+
+            localStorage.removeItem(
+                LOGIN_TIME_KEY
+            );
+
+            localStorage.removeItem(
+                ACTIVE_CODE_KEY
+            );
+
+            await signOut(auth);
+
+            currentUserCode =
+                null;
+
+            currentUsername =
+                null;
+
+            currentColor =
+                "#4285F4";
+
+            isAdmin =
+                false;
+
+            showScreen("login");
+
+            if (codeInput) {
+
+                codeInput.value =
+                    "";
+            }
+
+            if (errorMessage) {
+
+                errorMessage.textContent =
+                    "";
+            }
+
+            showNotification(
+                "You have been logged out."
+            );
+
+        } catch (error) {
+
+            console.error(
+                "Logout error:",
+                error
+            );
+
+            showNotification(
+                "Could not log out."
+            );
+        }
+    }
+);
+
+
+/* =====================================================
    AUTH STATE
-   ========================= */
+   ===================================================== */
 
 onAuthStateChanged(
     auth,
-
     async user => {
 
         if (!user) {
@@ -1856,7 +2768,6 @@ onAuthStateChanged(
             isAdmin =
                 false;
 
-
             if (stopMessageListener) {
 
                 stopMessageListener();
@@ -1865,12 +2776,12 @@ onAuthStateChanged(
                     null;
             }
 
+            stopWhisperListeners();
 
             showScreen("login");
 
             return;
         }
-
 
         try {
 
@@ -1881,16 +2792,15 @@ onAuthStateChanged(
                     ) || 0
                 );
 
-
             const savedCode =
                 localStorage.getItem(
                     ACTIVE_CODE_KEY
                 );
 
-
             if (
                 !loginTime ||
-                Date.now() - loginTime >=
+                Date.now() -
+                    loginTime >=
                     LOGIN_DURATION ||
                 !savedCode
             ) {
@@ -1899,43 +2809,45 @@ onAuthStateChanged(
                     LOGIN_TIME_KEY
                 );
 
-
                 localStorage.removeItem(
                     ACTIVE_CODE_KEY
                 );
 
-
                 await signOut(auth);
 
-
-                showScreen("login");
+                showScreen(
+                    "login"
+                );
 
                 return;
             }
 
-
             currentUserCode =
                 savedCode;
 
-
-            const savedUser =
-                getSavedUser(
-                    savedCode
-                );
-
-
             await checkAdminStatus();
 
+            const hasServerProfile =
+                await loadServerProfile();
 
-            if (savedUser) {
+            if (hasServerProfile) {
 
-                currentUsername =
-                    savedUser.username;
+                const savedUser =
+                    getSavedUser(
+                        savedCode
+                    );
 
-                currentColor =
-                    savedUser.color ||
-                    "#4285F4";
+                if (savedUser) {
 
+                    currentColor =
+                        savedUser.color ||
+                        "#4285F4";
+
+                } else {
+
+                    currentColor =
+                        "#4285F4";
+                }
 
                 if (colorInput) {
 
@@ -1943,17 +2855,19 @@ onAuthStateChanged(
                         currentColor;
                 }
 
-
                 showScreen("chat");
 
                 switchPage("chat");
 
                 loadMessages();
 
+                loadWhispers();
+
             } else {
 
-                showScreen("username");
-
+                showScreen(
+                    "username"
+                );
 
                 if (usernameInput) {
 
@@ -1971,16 +2885,17 @@ onAuthStateChanged(
                 error
             );
 
-
-            showScreen("login");
+            showScreen(
+                "login"
+            );
         }
     }
 );
 
 
-/* =========================
+/* =====================================================
    START
-   ========================= */
+   ===================================================== */
 
 showScreen("login");
 
