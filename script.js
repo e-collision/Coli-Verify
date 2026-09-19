@@ -883,15 +883,7 @@ async function sendMessage() {
         canSendMessage = true;
     }, 1000);
 
-    const text =
-        String(
-            messageInput?.value || ""
-        ).trim();
-
-    if (!text) {
-        return;
-    }
-
+    // Keep the rest of your original sendMessage code here
 
     /* /random_code */
 
