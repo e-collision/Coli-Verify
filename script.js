@@ -36,14 +36,11 @@ const firebaseConfig = {
     measurementId: "G-BW9C2WE4Q5"
 };
 
-const app =
-    initializeApp(firebaseConfig);
+const app = initializeApp(firebaseConfig);
 
-const db =
-    getFirestore(app);
+const db = getFirestore(app);
 
-const auth =
-    getAuth(app);
+const auth = getAuth(app);
 
 
 /* =====================================================
@@ -176,6 +173,45 @@ const ACTIVE_CODE_KEY =
 
 
 /* =====================================================
+   SAFE SERVER JSON
+   ===================================================== */
+
+async function getServerResponse(
+    response
+) {
+
+    const contentType =
+        response.headers.get(
+            "content-type"
+        ) || "";
+
+    if (
+        !contentType.includes(
+            "application/json"
+        )
+    ) {
+
+        const text =
+            await response.text();
+
+        console.error(
+            "Server returned non-JSON response:",
+            text
+        );
+
+        throw new Error(
+            `Server returned ${response.status} instead of JSON.`
+        );
+    }
+
+    const result =
+        await response.json();
+
+    return result;
+}
+
+
+/* =====================================================
    LOCAL USER STORAGE
    ===================================================== */
 
@@ -286,6 +322,7 @@ function switchPage(pageName) {
 
     pages.forEach(
         page => {
+
             page.classList.remove(
                 "activePage"
             );
@@ -369,8 +406,7 @@ settingsTab?.addEventListener(
    PROFILE NAME CODE UI
    ===================================================== */
 
-let profileNameCodeInput =
-    null;
+let profileNameCodeInput = null;
 
 
 function setupProfileNameCodeUI() {
@@ -381,13 +417,6 @@ function setupProfileNameCodeUI() {
     ) {
         return;
     }
-
-    /*
-       The username field stays editable,
-       but the server requires a one-time
-       code before an existing username
-       can actually be changed.
-    */
 
     if (profileUsername) {
 
@@ -562,10 +591,6 @@ if (saveProfileButton) {
                     currentColor;
             }
 
-            /*
-               Only changing color.
-            */
-
             if (
                 username ===
                 currentUsername
@@ -595,11 +620,6 @@ if (saveProfileButton) {
 
                 return;
             }
-
-            /*
-               Changing username requires
-               a one-time code.
-            */
 
             if (!nameCode) {
 
@@ -676,7 +696,9 @@ if (saveProfileButton) {
                     );
 
                 const result =
-                    await response.json();
+                    await getServerResponse(
+                        response
+                    );
 
                 if (
                     !response.ok ||
@@ -881,7 +903,9 @@ async function loadServerProfile() {
             );
 
         const result =
-            await response.json();
+            await getServerResponse(
+                response
+            );
 
         if (
             result.success &&
@@ -901,6 +925,16 @@ async function loadServerProfile() {
             }
 
             return true;
+        }
+
+        if (
+            response.status === 401 ||
+            response.status === 403
+        ) {
+
+            throw new Error(
+                "Your login session is no longer valid."
+            );
         }
 
         return false;
@@ -951,7 +985,9 @@ async function setInitialUsername(
         );
 
     const result =
-        await response.json();
+        await getServerResponse(
+            response
+        );
 
     if (
         !response.ok ||
@@ -1023,15 +1059,18 @@ joinButton?.addEventListener(
                     }
                 );
 
+            const result =
+                await getServerResponse(
+                    response
+                );
+
             if (!response.ok) {
 
                 throw new Error(
+                    result.message ||
                     `Verification server returned ${response.status}`
                 );
             }
-
-            const result =
-                await response.json();
 
             if (!result.success) {
 
@@ -1403,9 +1442,14 @@ async function generateRandomCode() {
             );
 
         const result =
-            await response.json();
+            await getServerResponse(
+                response
+            );
 
-        if (!result.success) {
+        if (
+            !response.ok ||
+            !result.success
+        ) {
 
             throw new Error(
                 result.message ||
@@ -1475,9 +1519,14 @@ async function generateRandomNameCode() {
             );
 
         const result =
-            await response.json();
+            await getServerResponse(
+                response
+            );
 
-        if (!result.success) {
+        if (
+            !response.ok ||
+            !result.success
+        ) {
 
             throw new Error(
                 result.message ||
@@ -1584,9 +1633,14 @@ async function muteChat(
             );
 
         const result =
-            await response.json();
+            await getServerResponse(
+                response
+            );
 
-        if (!result.success) {
+        if (
+            !response.ok ||
+            !result.success
+        ) {
 
             throw new Error(
                 result.message ||
@@ -1667,9 +1721,14 @@ async function unmuteChat(
             );
 
         const result =
-            await response.json();
+            await getServerResponse(
+                response
+            );
 
-        if (!result.success) {
+        if (
+            !response.ok ||
+            !result.success
+        ) {
 
             throw new Error(
                 result.message ||
@@ -1734,9 +1793,14 @@ async function clearChat() {
             );
 
         const result =
-            await response.json();
+            await getServerResponse(
+                response
+            );
 
-        if (!result.success) {
+        if (
+            !response.ok ||
+            !result.success
+        ) {
 
             throw new Error(
                 result.message ||
@@ -1833,9 +1897,14 @@ async function sendWhisper(
             );
 
         const result =
-            await response.json();
+            await getServerResponse(
+                response
+            );
 
-        if (!result.success) {
+        if (
+            !response.ok ||
+            !result.success
+        ) {
 
             throw new Error(
                 result.message ||
@@ -1899,10 +1968,6 @@ async function sendMessage() {
     );
 
 
-    /* ---------------------------------------------
-       /commands
-       --------------------------------------------- */
-
     if (
         text ===
         "/commands"
@@ -1916,10 +1981,6 @@ async function sendMessage() {
         return;
     }
 
-
-    /* ---------------------------------------------
-       /random_code
-       --------------------------------------------- */
 
     if (
         text ===
@@ -1935,10 +1996,6 @@ async function sendMessage() {
     }
 
 
-    /* ---------------------------------------------
-       /random_name_code
-       --------------------------------------------- */
-
     if (
         text ===
         "/random_name_code"
@@ -1952,10 +2009,6 @@ async function sendMessage() {
         return;
     }
 
-
-    /* ---------------------------------------------
-       /whisper
-       --------------------------------------------- */
 
     if (
         text.startsWith(
@@ -2000,15 +2053,6 @@ async function sendMessage() {
                 )
                 .trim();
 
-        /*
-           Convert underscores into
-           spaces.
-
-           John_Smith
-           becomes
-           John Smith
-        */
-
         targetUsername =
             targetUsername.replace(
                 /_/g,
@@ -2026,10 +2070,6 @@ async function sendMessage() {
         return;
     }
 
-
-    /* ---------------------------------------------
-       /mute <username>
-       --------------------------------------------- */
 
     if (
         text.startsWith(
@@ -2054,10 +2094,6 @@ async function sendMessage() {
     }
 
 
-    /* ---------------------------------------------
-       /unmute <username>
-       --------------------------------------------- */
-
     if (
         text.startsWith(
             "/unmute "
@@ -2081,10 +2117,6 @@ async function sendMessage() {
     }
 
 
-    /* ---------------------------------------------
-       /mute
-       --------------------------------------------- */
-
     if (
         text ===
         "/mute"
@@ -2100,10 +2132,6 @@ async function sendMessage() {
         return;
     }
 
-
-    /* ---------------------------------------------
-       /unmute
-       --------------------------------------------- */
 
     if (
         text ===
@@ -2121,10 +2149,6 @@ async function sendMessage() {
     }
 
 
-    /* ---------------------------------------------
-       /clear
-       --------------------------------------------- */
-
     if (
         text ===
         "/clear"
@@ -2138,10 +2162,6 @@ async function sendMessage() {
         return;
     }
 
-
-    /* ---------------------------------------------
-       NORMAL MESSAGE
-       --------------------------------------------- */
 
     if (!currentUsername) {
 
@@ -2186,9 +2206,14 @@ async function sendMessage() {
             );
 
         const result =
-            await response.json();
+            await getServerResponse(
+                response
+            );
 
-        if (!result.success) {
+        if (
+            !response.ok ||
+            !result.success
+        ) {
 
             if (result.muted) {
 
@@ -2306,11 +2331,6 @@ function loadMessages() {
 
                 const oldScrollTop =
                     messagesContainer.scrollTop;
-
-                /*
-                   Keep whisper messages
-                   separate from public messages.
-                */
 
                 messagesContainer
                     .querySelectorAll(
@@ -2519,10 +2539,6 @@ function loadWhispers() {
     }
 
 
-    /*
-       Whispers sent by you.
-    */
-
     const sentQuery =
         query(
             collection(
@@ -2542,10 +2558,6 @@ function loadWhispers() {
             )
         );
 
-
-    /*
-       Whispers received by you.
-    */
 
     const receivedQuery =
         query(
