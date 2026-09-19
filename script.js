@@ -104,6 +104,8 @@ let isAdmin = false;
 
 let stopMessageListener = null;
 
+let canSendMessage = true;
+
 
 /* =========================
    LOCAL USER STORAGE
@@ -860,6 +862,16 @@ async function clearChat() {
    ========================= */
 
 async function sendMessage() {
+
+    if (!canSendMessage) {
+        return;
+    }
+
+    canSendMessage = false;
+
+    setTimeout(() => {
+        canSendMessage = true;
+    }, 500);
 
     const text =
         String(
