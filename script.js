@@ -47,12 +47,7 @@ console.log("Project:", auth.app.options.projectId);
 console.log("Auth domain:", auth.app.options.authDomain);
 console.log("API key loaded:", !!auth.app.options.apiKey);
 
-fetch(
-    `https://identitytoolkit.googleapis.com/v1/projects?key=${encodeURIComponent(auth.app.options.apiKey)}`
-)
-    .then(r => r.json())
-    .then(data => console.log("FIREBASE KEY TEST:", data))
-    .catch(err => console.error("FIREBASE KEY TEST ERROR:", err));
+
 /* =====================================================
    SERVER
    ===================================================== */
