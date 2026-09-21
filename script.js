@@ -42,6 +42,11 @@ const db = getFirestore(app);
 
 const auth = getAuth(app);
 
+console.log("FIREBASE TEST");
+console.log("Project:", auth.app.options.projectId);
+console.log("Auth domain:", auth.app.options.authDomain);
+console.log("API key loaded:", !!auth.app.options.apiKey);
+
 
 /* =====================================================
    SERVER
