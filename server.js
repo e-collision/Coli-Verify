@@ -5,7 +5,8 @@ const crypto = require("crypto");
 
 const {
     initializeApp,
-    cert
+    cert,
+    getApps
 } = require("firebase-admin/app");
 
 const {
@@ -13,116 +14,117 @@ const {
 } = require("firebase-admin/auth");
 
 const {
-    getFirestore
+    getFirestore,
+    FieldValue
 } = require("firebase-admin/firestore");
 
 dotenv.config();
 
-/* =====================================================
-   FIREBASE ADMIN
-   ===================================================== */
+const app = express();
+
+
+// ============================================================
+// FIREBASE ADMIN SETUP
+// ============================================================
 
 let serviceAccount;
 
 if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    serviceAccount = JSON.parse(
-        process.env.FIREBASE_SERVICE_ACCOUNT
-    );
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
+    // IMPORTANT:
+    // Render environment variables store \n as text.
+    // Firebase Admin needs actual newline characters.
     if (serviceAccount.private_key) {
         serviceAccount.private_key =
-            serviceAccount.private_key.replace(
-                /\\n/g,
-                "\n"
-            );
+            serviceAccount.private_key.replace(/\\n/g, "\n");
     }
 } else {
     serviceAccount = require("./serviceAccountKey.json");
 }
 
-initializeApp({
-    credential: cert(serviceAccount)
-});
+if (getApps().length === 0) {
+    initializeApp({
+        credential: cert(serviceAccount)
+    });
+}
 
-const auth = getAuth();
+const adminAuth = getAuth();
 const db = getFirestore();
 
-/* =====================================================
-   EXPRESS
-   ===================================================== */
 
-const app = express();
+// ============================================================
+// MIDDLEWARE
+// ============================================================
 
 app.use(cors());
+
 app.use(express.json());
+
 app.use(express.static(__dirname));
 
-/* =====================================================
-   AUTHENTICATION
-   ===================================================== */
+
+// ============================================================
+// HELPER FUNCTIONS
+// ============================================================
+
+function hashCode(code) {
+    return crypto
+        .createHash("sha256")
+        .update(code)
+        .digest("hex");
+}
+
+
+function getAccountEmail(code) {
+    return `${hashCode(code)}@coli-verify.firebaseapp.com`;
+}
+
 
 async function verifyUserToken(req, res, next) {
     try {
-        const authorization =
-            req.headers.authorization;
+        const authHeader = req.headers.authorization;
 
-        if (
-            !authorization ||
-            !authorization.startsWith("Bearer ")
-        ) {
+        if (!authHeader || !authHeader.startsWith("Bearer ")) {
             return res.status(401).json({
-                success: false,
-                message: "Unauthorized."
+                error: "Missing authentication token."
             });
         }
 
-        const idToken =
-            authorization.substring(7);
+        const token = authHeader.substring(7);
 
-        const decodedToken =
-            await auth.verifyIdToken(idToken);
+        const decodedToken = await adminAuth.verifyIdToken(token);
 
         req.user = decodedToken;
 
         next();
     } catch (error) {
-        console.error(
-            "User authentication error:",
-            error
-        );
+        console.error("User token verification failed:", error);
 
         return res.status(401).json({
-            success: false,
-            message: "Invalid authentication."
+            error: "Invalid authentication token."
         });
     }
 }
+
 
 async function verifyAdminToken(req, res, next) {
     try {
-        const authorization =
-            req.headers.authorization;
+        const authHeader = req.headers.authorization;
 
-        if (
-            !authorization ||
-            !authorization.startsWith("Bearer ")
-        ) {
+        if (!authHeader || !authHeader.startsWith("Bearer ")) {
             return res.status(401).json({
-                success: false,
-                message: "Unauthorized."
+                error: "Missing authentication token."
             });
         }
 
-        const idToken =
-            authorization.substring(7);
+        const token = authHeader.substring(7);
 
-        const decodedToken =
-            await auth.verifyIdToken(idToken);
+        const decodedToken = await adminAuth.verifyIdToken(token);
 
         if (decodedToken.admin !== true) {
             return res.status(403).json({
-                success: false,
-                message: "Admin permission required."
+                error: "Admin access required."
             });
         }
 
@@ -130,100 +132,81 @@ async function verifyAdminToken(req, res, next) {
 
         next();
     } catch (error) {
-        console.error(
-            "Admin authentication error:",
-            error
-        );
+        console.error("Admin token verification failed:", error);
 
         return res.status(401).json({
-            success: false,
-            message: "Invalid authentication."
+            error: "Invalid authentication token."
         });
     }
 }
 
-/* =====================================================
-   ACCOUNT EMAIL
-   ===================================================== */
 
-function getAccountEmail(code) {
-    const hash =
-        crypto
-            .createHash("sha256")
-            .update(code)
-            .digest("hex");
-
-    return `${hash}@coli-verify.firebaseapp.com`;
-}
-
-/* =====================================================
-   VERIFY ACCESS CODE
-   ===================================================== */
+// ============================================================
+// VERIFY ACCESS CODE
+// ============================================================
 
 app.post("/verify-code", async (req, res) => {
     try {
-        const code =
-            String(
-                req.body.code || ""
-            ).trim();
+        const code = String(req.body.code || "").trim();
 
         if (!code) {
             return res.status(400).json({
-                success: false,
-                message: "Missing code."
+                error: "Access code is required."
             });
         }
 
+        const adminCode = String(process.env.ADMIN_CODE || "").trim();
+
         const isAdminCode =
-            code === process.env.ADMIN_CODE;
+            adminCode &&
+            code === adminCode;
+
+        let codeIsValid = isAdminCode;
 
         if (!isAdminCode) {
-            const snapshot =
-                await db
-                    .collection("codes")
-                    .where(
-                        "code",
-                        "==",
-                        code
-                    )
-                    .limit(1)
-                    .get();
+            const codeHash = hashCode(code);
 
-            if (snapshot.empty) {
-                return res.json({
-                    success: false,
-                    message: "Invalid code."
-                });
+            const codeRef = db.collection("codes").doc(codeHash);
+            const codeSnap = await codeRef.get();
+
+            if (codeSnap.exists) {
+                const data = codeSnap.data();
+
+                if (data && data.used !== true) {
+                    codeIsValid = true;
+                }
             }
         }
 
-        const email =
-            getAccountEmail(code);
+        if (!codeIsValid) {
+            return res.status(401).json({
+                error: "Invalid access code."
+            });
+        }
+
+        const email = getAccountEmail(code);
+        const password = code;
 
         let userRecord;
 
         try {
-            userRecord =
-                await auth.getUserByEmail(
-                    email
-                );
+            userRecord = await adminAuth.getUserByEmail(email);
         } catch (error) {
-            if (
-                error.code !==
-                "auth/user-not-found"
-            ) {
+            if (error.code === "auth/user-not-found") {
+                userRecord = await adminAuth.createUser({
+                    email: email,
+                    password: password
+                });
+            } else {
                 throw error;
             }
-
-            userRecord =
-                await auth.createUser({
-                    email,
-                    password: code,
-                    emailVerified: true
-                });
         }
 
-        await auth.setCustomUserClaims(
+        await adminAuth.updateUser(userRecord.uid, {
+            password: password
+        });
+
+        await adminAuth.setCustomUserClaims(
             userRecord.uid,
             {
                 admin: isAdminCode
@@ -233,964 +216,594 @@ app.post("/verify-code", async (req, res) => {
         return res.json({
             success: true,
             admin: isAdminCode,
-            email,
-            password: code
+            email: email,
+            password: password
         });
 
     } catch (error) {
-        console.error(
-            "Verification error:",
-            error
-        );
+        console.error("Verify-code error:", error);
 
         return res.status(500).json({
-            success: false,
-            message: "Server error."
+            error: "Server error while verifying access code."
         });
     }
 });
 
-/* =====================================================
-   RANDOM ACCESS CODE
-   ADMIN ONLY
-   ===================================================== */
 
-app.post(
-    "/random-code",
-    verifyAdminToken,
-    async (req, res) => {
-        try {
-            let newCode = "";
-            let exists = true;
+// ============================================================
+// GENERATE RANDOM ACCESS CODE
+// ============================================================
 
-            while (exists) {
-                newCode =
-                    crypto
-                        .randomInt(
-                            100000000,
-                            1000000000
-                        )
-                        .toString();
+app.post("/random-code", verifyAdminToken, async (req, res) => {
+    try {
+        let code;
+        let exists = true;
 
-                const existing =
-                    await db
-                        .collection("codes")
-                        .where(
-                            "code",
-                            "==",
-                            newCode
-                        )
-                        .limit(1)
-                        .get();
+        while (exists) {
+            code = Math.floor(
+                100000000 +
+                Math.random() * 900000000
+            ).toString();
 
-                exists =
-                    !existing.empty;
-            }
+            const hash = hashCode(code);
 
-            await db
+            const doc = await db
                 .collection("codes")
-                .add({
-                    code: newCode,
-                    createdAt: Date.now(),
-                    createdBy:
-                        req.user.uid
-                });
+                .doc(hash)
+                .get();
 
-            return res.json({
-                success: true,
-                code: newCode
+            exists = doc.exists;
+        }
+
+        const hash = hashCode(code);
+
+        await db
+            .collection("codes")
+            .doc(hash)
+            .set({
+                createdAt: FieldValue.serverTimestamp(),
+                used: false
             });
 
-        } catch (error) {
-            console.error(
-                "Random code error:",
-                error
-            );
+        return res.json({
+            success: true,
+            code: code
+        });
 
-            return res.status(500).json({
-                success: false,
-                message:
-                    "Could not generate code."
+    } catch (error) {
+        console.error("Random-code error:", error);
+
+        return res.status(500).json({
+            error: "Failed to generate random code."
+        });
+    }
+});
+
+
+// ============================================================
+// GENERATE RANDOM NAME-CHANGE CODE
+// ============================================================
+
+app.post("/random-name-code", verifyAdminToken, async (req, res) => {
+    try {
+        let code;
+        let exists = true;
+
+        while (exists) {
+            code = Math.floor(
+                10000000 +
+                Math.random() * 90000000
+            ).toString();
+
+            const doc = await db
+                .collection("nameChangeCodes")
+                .doc(code)
+                .get();
+
+            exists = doc.exists;
+        }
+
+        const expiresAt = Date.now() + (15 * 60 * 1000);
+
+        await db
+            .collection("nameChangeCodes")
+            .doc(code)
+            .set({
+                createdAt: FieldValue.serverTimestamp(),
+                expiresAt: expiresAt
+            });
+
+        return res.json({
+            success: true,
+            code: code,
+            expiresAt: expiresAt
+        });
+
+    } catch (error) {
+        console.error("Random-name-code error:", error);
+
+        return res.status(500).json({
+            error: "Failed to generate name-change code."
+        });
+    }
+});
+
+
+// ============================================================
+// SET USERNAME
+// ============================================================
+
+app.post("/set-username", verifyUserToken, async (req, res) => {
+    try {
+        const username = String(req.body.username || "").trim();
+
+        if (!username) {
+            return res.status(400).json({
+                error: "Username is required."
             });
         }
-    }
-);
 
-/* =====================================================
-   RANDOM NAME-CHANGE CODE
-   ADMIN ONLY
-   ===================================================== */
-
-app.post(
-    "/random-name-code",
-    verifyAdminToken,
-    async (req, res) => {
-        try {
-            let newCode = "";
-            let exists = true;
-
-            while (exists) {
-                newCode =
-                    crypto
-                        .randomInt(
-                            10000000,
-                            100000000
-                        )
-                        .toString();
-
-                const existing =
-                    await db
-                        .collection(
-                            "nameChangeCodes"
-                        )
-                        .doc(newCode)
-                        .get();
-
-                exists =
-                    existing.exists;
-            }
-
-            const createdAt =
-                Date.now();
-
-            const expiresAt =
-                createdAt +
-                15 * 60 * 1000;
-
-            await db
-                .collection(
-                    "nameChangeCodes"
-                )
-                .doc(newCode)
-                .set({
-                    code: newCode,
-                    createdAt,
-                    expiresAt,
-                    createdBy:
-                        req.user.uid
-                });
-
-            return res.json({
-                success: true,
-                code: newCode,
-                expiresInMinutes: 15
-            });
-
-        } catch (error) {
-            console.error(
-                "Random name code error:",
-                error
-            );
-
-            return res.status(500).json({
-                success: false,
-                message:
-                    "Could not generate name-change code."
+        if (username.length > 30) {
+            return res.status(400).json({
+                error: "Username must be 30 characters or fewer."
             });
         }
+
+        const profileRef = db
+            .collection("profiles")
+            .doc(req.user.uid);
+
+        await profileRef.set({
+            username: username
+        });
+
+        return res.json({
+            success: true,
+            username: username
+        });
+
+    } catch (error) {
+        console.error("Set-username error:", error);
+
+        return res.status(500).json({
+            error: "Failed to set username."
+        });
     }
-);
+});
 
-/* =====================================================
-   INITIAL USERNAME
-   ===================================================== */
 
-app.post(
-    "/set-username",
-    verifyUserToken,
-    async (req, res) => {
-        try {
-            const username =
-                String(
-                    req.body.username || ""
-                ).trim();
+// ============================================================
+// CHANGE USERNAME
+// ============================================================
 
-            if (!username) {
-                return res.status(400).json({
-                    success: false,
-                    message:
-                        "Username is required."
-                });
-            }
+app.post("/change-username", verifyUserToken, async (req, res) => {
+    try {
+        const username = String(req.body.username || "").trim();
+        const code = String(req.body.code || "").trim();
 
-            if (username.length > 30) {
-                return res.status(400).json({
-                    success: false,
-                    message:
-                        "Username must be 30 characters or less."
-                });
-            }
-
-            const profileRef =
-                db
-                    .collection("profiles")
-                    .doc(req.user.uid);
-
-            const existing =
-                await profileRef.get();
-
-            if (existing.exists) {
-                return res.status(409).json({
-                    success: false,
-                    message:
-                        "Username already exists. A name-change code is required."
-                });
-            }
-
-            await profileRef.set({
-                username,
-                updatedAt: Date.now()
-            });
-
-            return res.json({
-                success: true,
-                username
-            });
-
-        } catch (error) {
-            console.error(
-                "Set username error:",
-                error
-            );
-
-            return res.status(500).json({
-                success: false,
-                message:
-                    "Could not save username."
+        if (!username || !code) {
+            return res.status(400).json({
+                error: "Username and code are required."
             });
         }
-    }
-);
 
-/* =====================================================
-   CHANGE USERNAME
-   ONE-TIME CODE REQUIRED
-   ===================================================== */
-
-app.post(
-    "/change-username",
-    verifyUserToken,
-    async (req, res) => {
-        try {
-            const username =
-                String(
-                    req.body.username || ""
-                ).trim();
-
-            const code =
-                String(
-                    req.body.code || ""
-                ).trim();
-
-            if (!username) {
-                return res.status(400).json({
-                    success: false,
-                    message:
-                        "Enter a new username."
-                });
-            }
-
-            if (username.length > 30) {
-                return res.status(400).json({
-                    success: false,
-                    message:
-                        "Username must be 30 characters or less."
-                });
-            }
-
-            if (!code) {
-                return res.status(400).json({
-                    success: false,
-                    message:
-                        "Enter a name-change code."
-                });
-            }
-
-            const codeRef =
-                db
-                    .collection(
-                        "nameChangeCodes"
-                    )
-                    .doc(code);
-
-            const profileRef =
-                db
-                    .collection("profiles")
-                    .doc(req.user.uid);
-
-            await db.runTransaction(
-                async transaction => {
-                    const codeSnapshot =
-                        await transaction.get(
-                            codeRef
-                        );
-
-                    if (!codeSnapshot.exists) {
-                        const error =
-                            new Error(
-                                "Invalid or already-used name-change code."
-                            );
-
-                        error.code =
-                            "INVALID_NAME_CODE";
-
-                        throw error;
-                    }
-
-                    const codeData =
-                        codeSnapshot.data();
-
-                    if (
-                        !codeData.expiresAt ||
-                        Date.now() >
-                            codeData.expiresAt
-                    ) {
-                        const error =
-                            new Error(
-                                "That name-change code has expired."
-                            );
-
-                        error.code =
-                            "EXPIRED_NAME_CODE";
-
-                        throw error;
-                    }
-
-                    transaction.set(
-                        profileRef,
-                        {
-                            username,
-                            updatedAt:
-                                Date.now()
-                        },
-                        {
-                            merge: true
-                        }
-                    );
-
-                    transaction.delete(
-                        codeRef
-                    );
-                }
-            );
-
-            return res.json({
-                success: true,
-                username
+        if (username.length > 30) {
+            return res.status(400).json({
+                error: "Username must be 30 characters or fewer."
             });
+        }
 
-        } catch (error) {
-            if (
-                error.code ===
-                "INVALID_NAME_CODE"
-            ) {
-                return res.status(400).json({
-                    success: false,
-                    message:
-                        "Invalid or already-used name-change code."
-                });
+        const codeRef = db
+            .collection("nameChangeCodes")
+            .doc(code);
+
+        const profileRef = db
+            .collection("profiles")
+            .doc(req.user.uid);
+
+        await db.runTransaction(async transaction => {
+            const codeSnap = await transaction.get(codeRef);
+
+            if (!codeSnap.exists) {
+                throw new Error("INVALID_NAME_CODE");
             }
+
+            const data = codeSnap.data();
 
             if (
-                error.code ===
-                "EXPIRED_NAME_CODE"
+                !data ||
+                !data.expiresAt ||
+                Date.now() > data.expiresAt
             ) {
-                return res.status(400).json({
-                    success: false,
-                    message:
-                        "That name-change code has expired."
-                });
+                throw new Error("EXPIRED_NAME_CODE");
             }
 
-            console.error(
-                "Change username error:",
-                error
-            );
+            transaction.set(profileRef, {
+                username: username
+            }, {
+                merge: true
+            });
 
-            return res.status(500).json({
-                success: false,
-                message:
-                    "Could not change username."
+            transaction.delete(codeRef);
+        });
+
+        return res.json({
+            success: true,
+            username: username
+        });
+
+    } catch (error) {
+        if (error.message === "INVALID_NAME_CODE") {
+            return res.status(400).json({
+                error: "Invalid name-change code."
             });
         }
-    }
-);
 
-/* =====================================================
-   GET CURRENT PROFILE
-   ===================================================== */
-
-app.get(
-    "/profile",
-    verifyUserToken,
-    async (req, res) => {
-        try {
-            const profile =
-                await db
-                    .collection("profiles")
-                    .doc(req.user.uid)
-                    .get();
-
-            if (!profile.exists) {
-                return res.json({
-                    success: true,
-                    username: null
-                });
-            }
-
-            const data =
-                profile.data();
-
-            return res.json({
-                success: true,
-                username:
-                    data.username || null
-            });
-
-        } catch (error) {
-            console.error(
-                "Get profile error:",
-                error
-            );
-
-            return res.status(500).json({
-                success: false,
-                message:
-                    "Could not load profile."
+        if (error.message === "EXPIRED_NAME_CODE") {
+            return res.status(400).json({
+                error: "That name-change code has expired."
             });
         }
+
+        console.error("Change-username error:", error);
+
+        return res.status(500).json({
+            error: "Failed to change username."
+        });
     }
-);
+});
 
-/* =====================================================
-   UPDATE PROFILE PICTURE
-   AUTHENTICATED USERS
-   ===================================================== */
 
-app.post(
-    "/profile-picture",
-    verifyUserToken,
-    async (req, res) => {
-        try {
+// ============================================================
+// GET PROFILE
+// ============================================================
 
-            const profilePicture =
-                String(
-                    req.body.profilePicture || ""
-                ).trim();
+app.get("/profile", verifyUserToken, async (req, res) => {
+    try {
+        const profileSnap = await db
+            .collection("profiles")
+            .doc(req.user.uid)
+            .get();
 
-            if (profilePicture.length > 1000) {
-                return res.status(400).json({
-                    success: false,
-                    message:
-                        "Profile picture URL is too long."
-                });
-            }
-
-            if (
-                profilePicture &&
-                !profilePicture.startsWith("https://")
-            ) {
-                return res.status(400).json({
-                    success: false,
-                    message:
-                        "Profile picture must use an HTTPS URL."
-                });
-            }
-
-            const profileRef =
-                db
-                    .collection("profiles")
-                    .doc(req.user.uid);
-
-            const profile =
-                await profileRef.get();
-
-            if (!profile.exists) {
-                return res.status(400).json({
-                    success: false,
-                    message:
-                        "Set your username first."
-                });
-            }
-
-            await profileRef.set(
-                {
-                    profilePicture:
-                        profilePicture || null,
-
-                    updatedAt:
-                        Date.now()
-                },
-                {
-                    merge: true
-                }
-            );
-
+        if (!profileSnap.exists) {
             return res.json({
                 success: true,
-                profilePicture:
-                    profilePicture || null
-            });
-
-        } catch (error) {
-
-            console.error(
-                "Profile picture error:",
-                error
-            );
-
-            return res.status(500).json({
-                success: false,
-                message:
-                    "Could not update profile picture."
+                profile: null
             });
         }
+
+        return res.json({
+            success: true,
+            profile: profileSnap.data()
+        });
+
+    } catch (error) {
+        console.error("Profile error:", error);
+
+        return res.status(500).json({
+            error: "Failed to load profile."
+        });
     }
-);
+});
 
-/* =====================================================
-   MUTE CHAT
-   ADMIN ONLY
-   ===================================================== */
 
-app.post(
-    "/mute",
-    verifyAdminToken,
-    async (req, res) => {
-        try {
-            await db
-                .collection("settings")
-                .doc("chat")
-                .set({
-                    muted: true,
-                    updatedAt:
-                        Date.now(),
-                    updatedBy:
-                        req.user.uid
-                });
+// ============================================================
+// PROFILE PICTURE
+// ============================================================
 
-            return res.json({
-                success: true,
+app.post("/profile-picture", verifyUserToken, async (req, res) => {
+    try {
+        const url = String(req.body.url || "").trim();
+
+        if (url.length > 1000) {
+            return res.status(400).json({
+                error: "Profile picture URL is too long."
+            });
+        }
+
+        if (url && !url.startsWith("https://")) {
+            return res.status(400).json({
+                error: "Profile picture must use HTTPS."
+            });
+        }
+
+        const profileRef = db
+            .collection("profiles")
+            .doc(req.user.uid);
+
+        const profileSnap = await profileRef.get();
+
+        if (!profileSnap.exists) {
+            return res.status(400).json({
+                error: "Create a profile first."
+            });
+        }
+
+        await profileRef.set({
+            profilePicture: url
+        }, {
+            merge: true
+        });
+
+        return res.json({
+            success: true,
+            profilePicture: url
+        });
+
+    } catch (error) {
+        console.error("Profile-picture error:", error);
+
+        return res.status(500).json({
+            error: "Failed to update profile picture."
+        });
+    }
+});
+
+
+// ============================================================
+// MUTE CHAT
+// ============================================================
+
+app.post("/mute", verifyAdminToken, async (req, res) => {
+    try {
+        await db
+            .collection("settings")
+            .doc("chat")
+            .set({
                 muted: true
+            }, {
+                merge: true
             });
 
-        } catch (error) {
-            console.error(
-                "Mute error:",
-                error
-            );
+        return res.json({
+            success: true,
+            muted: true
+        });
 
-            return res.status(500).json({
-                success: false,
-                message:
-                    "Could not mute chat."
-            });
-        }
+    } catch (error) {
+        console.error("Mute error:", error);
+
+        return res.status(500).json({
+            error: "Failed to mute chat."
+        });
     }
-);
+});
 
-/* =====================================================
-   UNMUTE CHAT
-   ADMIN ONLY
-   ===================================================== */
 
-app.post(
-    "/unmute",
-    verifyAdminToken,
-    async (req, res) => {
-        try {
-            await db
-                .collection("settings")
-                .doc("chat")
-                .set({
-                    muted: false,
-                    updatedAt:
-                        Date.now(),
-                    updatedBy:
-                        req.user.uid
-                });
+// ============================================================
+// UNMUTE CHAT
+// ============================================================
 
-            return res.json({
-                success: true,
+app.post("/unmute", verifyAdminToken, async (req, res) => {
+    try {
+        await db
+            .collection("settings")
+            .doc("chat")
+            .set({
                 muted: false
+            }, {
+                merge: true
             });
 
-        } catch (error) {
-            console.error(
-                "Unmute error:",
-                error
-            );
+        return res.json({
+            success: true,
+            muted: false
+        });
 
-            return res.status(500).json({
-                success: false,
-                message:
-                    "Could not unmute chat."
+    } catch (error) {
+        console.error("Unmute error:", error);
+
+        return res.status(500).json({
+            error: "Failed to unmute chat."
+        });
+    }
+});
+
+
+// ============================================================
+// SEND MESSAGE
+// ============================================================
+
+app.post("/send-message", verifyUserToken, async (req, res) => {
+    try {
+        const text = String(req.body.text || "").trim();
+        const color = String(req.body.color || "").trim();
+
+        if (!text) {
+            return res.status(400).json({
+                error: "Message cannot be empty."
             });
         }
-    }
-);
 
-/* =====================================================
-   SEND NORMAL MESSAGE
-   ===================================================== */
-
-app.post(
-    "/send-message",
-    verifyUserToken,
-    async (req, res) => {
-        try {
-            const {
-                text,
-                color
-            } = req.body;
-
-            if (!text) {
-                return res.status(400).json({
-                    success: false,
-                    message:
-                        "Missing message."
-                });
-            }
-
-            const profile =
-                await db
-                    .collection("profiles")
-                    .doc(req.user.uid)
-                    .get();
-
-            if (!profile.exists) {
-                return res.status(400).json({
-                    success: false,
-                    message:
-                        "Set your username first."
-                });
-            }
-
-            const profileData =
-                profile.data();
-
-            const username =
-                String(
-                    profileData.username || ""
-                ).trim();
-
-            if (!username) {
-                return res.status(400).json({
-                    success: false,
-                    message:
-                        "Set your username first."
-                });
-            }
-
-            const settings =
-                await db
-                    .collection("settings")
-                    .doc("chat")
-                    .get();
-
-            const muted =
-                settings.exists &&
-                settings.data().muted === true;
-
-            if (
-                muted &&
-                req.user.admin !== true
-            ) {
-                return res.status(403).json({
-                    success: false,
-                    muted: true,
-                    message:
-                        "The chat is currently muted."
-                });
-            }
-
-            await db
-                .collection("messages")
-                .add({
-                    username:
-                        username.slice(
-                            0,
-                            30
-                        ),
-                    text:
-                        String(text)
-                            .slice(
-                                0,
-                                2000
-                            ),
-                    color:
-                        String(
-                            color ||
-                            "#4285F4"
-                        ),
-                    timestamp:
-                        Date.now(),
-                    uid:
-                        req.user.uid
-                });
-
-            return res.json({
-                success: true
-            });
-
-        } catch (error) {
-            console.error(
-                "Send message error:",
-                error
-            );
-
-            return res.status(500).json({
-                success: false,
-                message:
-                    "Could not send message."
+        if (text.length > 2000) {
+            return res.status(400).json({
+                error: "Message is too long."
             });
         }
-    }
-);
 
-/* =====================================================
-   SEND WHISPER
-   ===================================================== */
+        const profileSnap = await db
+            .collection("profiles")
+            .doc(req.user.uid)
+            .get();
 
-app.post(
-    "/send-whisper",
-    verifyUserToken,
-    async (req, res) => {
-        try {
-            const targetUsername =
-                String(
-                    req.body.username || ""
-                ).trim();
-
-            const messageText =
-                String(
-                    req.body.text || ""
-                ).trim();
-
-            const color =
-                String(
-                    req.body.color ||
-                    "#4285F4"
-                );
-
-            if (!targetUsername) {
-                return res.status(400).json({
-                    success: false,
-                    message:
-                        "Missing username."
-                });
-            }
-
-            if (!messageText) {
-                return res.status(400).json({
-                    success: false,
-                    message:
-                        "Missing message."
-                });
-            }
-
-            if (messageText.length > 2000) {
-                return res.status(400).json({
-                    success: false,
-                    message:
-                        "Message is too long."
-                });
-            }
-
-            const senderProfile =
-                await db
-                    .collection("profiles")
-                    .doc(req.user.uid)
-                    .get();
-
-            if (!senderProfile.exists) {
-                return res.status(400).json({
-                    success: false,
-                    message:
-                        "Set your username first."
-                });
-            }
-
-            const senderData =
-                senderProfile.data();
-
-            const senderUsername =
-                String(
-                    senderData.username || ""
-                ).trim();
-
-            if (!senderUsername) {
-                return res.status(400).json({
-                    success: false,
-                    message:
-                        "Set your username first."
-                });
-            }
-
-            const recipientSnapshot =
-                await db
-                    .collection("profiles")
-                    .where(
-                        "username",
-                        "==",
-                        targetUsername
-                    )
-                    .limit(1)
-                    .get();
-
-            if (recipientSnapshot.empty) {
-                return res.status(404).json({
-                    success: false,
-                    message:
-                        `User "${targetUsername}" was not found.`
-                });
-            }
-
-            const recipientDoc =
-                recipientSnapshot.docs[0];
-
-            const recipientUid =
-                recipientDoc.id;
-
-            if (
-                recipientUid ===
-                req.user.uid
-            ) {
-                return res.status(400).json({
-                    success: false,
-                    message:
-                        "You cannot whisper yourself."
-                });
-            }
-
-            await db
-                .collection("whispers")
-                .add({
-                    senderUid:
-                        req.user.uid,
-                    senderUsername:
-                        senderUsername,
-                    recipientUid:
-                        recipientUid,
-                    recipientUsername:
-                        targetUsername,
-                    text:
-                        messageText,
-                    color:
-                        color,
-                    timestamp:
-                        Date.now()
-                });
-
-            return res.json({
-                success: true
-            });
-
-        } catch (error) {
-            console.error(
-                "Whisper error:",
-                error
-            );
-
-            return res.status(500).json({
-                success: false,
-                message:
-                    "Could not send whisper."
+        if (!profileSnap.exists) {
+            return res.status(400).json({
+                error: "You must create a username first."
             });
         }
-    }
-);
 
-/* =====================================================
-   CLEAR CHAT
-   ADMIN ONLY
-   ===================================================== */
+        const profile = profileSnap.data();
 
-app.post(
-    "/clear",
-    verifyAdminToken,
-    async (req, res) => {
-        try {
-            const snapshot =
-                await db
-                    .collection("messages")
-                    .get();
+        const settingsSnap = await db
+            .collection("settings")
+            .doc("chat")
+            .get();
 
-            if (snapshot.empty) {
-                return res.json({
-                    success: true,
-                    deleted: 0
-                });
-            }
+        const settings = settingsSnap.exists
+            ? settingsSnap.data()
+            : {};
 
-            const batchLimit = 500;
-            let deleted = 0;
-
-            for (
-                let i = 0;
-                i < snapshot.docs.length;
-                i += batchLimit
-            ) {
-                const batch =
-                    db.batch();
-
-                const chunk =
-                    snapshot.docs.slice(
-                        i,
-                        i + batchLimit
-                    );
-
-                for (
-                    const messageDoc
-                    of chunk
-                ) {
-                    batch.delete(
-                        messageDoc.ref
-                    );
-
-                    deleted++;
-                }
-
-                await batch.commit();
-            }
-
-            return res.json({
-                success: true,
-                deleted
-            });
-
-        } catch (error) {
-            console.error(
-                "Clear chat error:",
-                error
-            );
-
-            return res.status(500).json({
-                success: false,
-                message:
-                    "Could not clear chat."
+        if (settings.muted === true && req.user.admin !== true) {
+            return res.status(403).json({
+                error: "Chat is currently muted."
             });
         }
+
+        await db.collection("messages").add({
+            uid: req.user.uid,
+            username: profile.username || "Unknown",
+            text: text,
+            color: color,
+            timestamp: FieldValue.serverTimestamp()
+        });
+
+        return res.json({
+            success: true
+        });
+
+    } catch (error) {
+        console.error("Send-message error:", error);
+
+        return res.status(500).json({
+            error: "Failed to send message."
+        });
     }
-);
+});
 
-/* =====================================================
-   START SERVER
-   ===================================================== */
 
-const PORT =
-    process.env.PORT || 3000;
+// ============================================================
+// SEND WHISPER
+// ============================================================
 
-app.listen(
-    PORT,
-    "0.0.0.0",
-    () => {
-        console.log(
-            `Server running on port ${PORT}`
-        );
+app.post("/send-whisper", verifyUserToken, async (req, res) => {
+    try {
+        const recipientUsername =
+            String(req.body.recipientUsername || "").trim();
 
-        console.log(
-            `Open http://localhost:${PORT}`
-        );
+        const text =
+            String(req.body.text || "").trim();
+
+        if (!recipientUsername || !text) {
+            return res.status(400).json({
+                error: "Recipient and message are required."
+            });
+        }
+
+        if (text.length > 2000) {
+            return res.status(400).json({
+                error: "Message is too long."
+            });
+        }
+
+        const senderProfileSnap = await db
+            .collection("profiles")
+            .doc(req.user.uid)
+            .get();
+
+        if (!senderProfileSnap.exists) {
+            return res.status(400).json({
+                error: "You must create a username first."
+            });
+        }
+
+        const senderProfile = senderProfileSnap.data();
+
+        const profilesSnap = await db
+            .collection("profiles")
+            .where("username", "==", recipientUsername)
+            .limit(1)
+            .get();
+
+        if (profilesSnap.empty) {
+            return res.status(404).json({
+                error: "User not found."
+            });
+        }
+
+        const recipientDoc = profilesSnap.docs[0];
+
+        await db.collection("whispers").add({
+            senderUid: req.user.uid,
+            senderUsername: senderProfile.username || "Unknown",
+            recipientUid: recipientDoc.id,
+            recipientUsername: recipientUsername,
+            text: text,
+            timestamp: FieldValue.serverTimestamp()
+        });
+
+        return res.json({
+            success: true
+        });
+
+    } catch (error) {
+        console.error("Send-whisper error:", error);
+
+        return res.status(500).json({
+            error: "Failed to send whisper."
+        });
     }
-);
+});
+
+
+// ============================================================
+// CLEAR CHAT
+// ============================================================
+
+app.post("/clear", verifyAdminToken, async (req, res) => {
+    try {
+        const messagesRef = db.collection("messages");
+
+        let snapshot = await messagesRef.limit(500).get();
+
+        let deleted = 0;
+
+        while (!snapshot.empty) {
+            const batch = db.batch();
+
+            snapshot.docs.forEach(doc => {
+                batch.delete(doc.ref);
+            });
+
+            await batch.commit();
+
+            deleted += snapshot.size;
+
+            snapshot = await messagesRef.limit(500).get();
+        }
+
+        return res.json({
+            success: true,
+            deleted: deleted
+        });
+
+    } catch (error) {
+        console.error("Clear error:", error);
+
+        return res.status(500).json({
+            error: "Failed to clear chat."
+        });
+    }
+});
+
+
+// ============================================================
+// HEALTH CHECK
+// ============================================================
+
+app.get("/health", (req, res) => {
+    res.json({
+        success: true,
+        message: "Coli Verify server is running."
+    });
+});
+
+
+// ============================================================
+// START SERVER
+// ============================================================
+
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Coli Verify server running on port ${PORT}`);
+});
